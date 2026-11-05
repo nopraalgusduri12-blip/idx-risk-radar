@@ -21,7 +21,8 @@
     "web": "node src/web.js",
     "collect": "node quant/collect.mjs",
     "collect:draw": "node quant/collect.mjs --draw",
-    "collect:server": "node quant/collect.mjs --server-compute"
+    "collect:server": "node quant/collect.mjs --server-compute",
+    "web:local": "node --env-file=.env.local src/web.js"
   },
   "engines": {
     "node": ">=18"

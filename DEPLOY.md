@@ -66,6 +66,17 @@ The server listens on `127.0.0.1:8080`. To reach it from other devices without o
 3. Put its token in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`.
 4. Uncomment the `tunnel` service in `docker-compose.yml`.
 
+### Option C2: this Windows PC, no Docker (simplest)
+
+1. Install the tunnel program: `winget install --id Cloudflare.cloudflared`.
+2. Create `.env.local` in the repo folder (Git ignores it) with three lines: `RADAR_TOKEN=<long random string>`, `HOST=127.0.0.1`, `PORT=8787`.
+3. Double-click **`start-radar.cmd`**. One window runs the server; the other prints your public `https://….trycloudflare.com` address.
+
+On this PC the server reads `quant/data` directly, so `npm run radar` (or `node quant/model.mjs …` and `node quant/risk.mjs …`) updates the website with no upload step.
+
+- A **quick tunnel** address changes each time it starts. For a fixed address, such as `https://radar.yourdomain.com` for the claude.ai connector, create a **named tunnel**: you need a free Cloudflare account and a domain on Cloudflare. Then run `cloudflared tunnel login`, `cloudflared tunnel create radar`, `cloudflared tunnel route dns radar radar.yourdomain.com` and `cloudflared tunnel run --url http://127.0.0.1:8787 radar`.
+- If PowerShell refuses `npm` ("running scripts is disabled"), run `node --env-file=.env.local src/web.js` instead, or use `npm.cmd`.
+
 ### Option D: no Docker (any OS with Node 18+)
 
 ```bash
