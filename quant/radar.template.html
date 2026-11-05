@@ -1,0 +1,441 @@
+<title>IDX Risk Radar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single column trading-floor board. Market weather first, then the stock board (filterable rows that open into a trade card), then allocation, glossary and the math behind it. */
+:root {
+  --bg: #f3f5f4; --surface: #ffffff; --sunk: #e9eeec; --ink: #14201d; --muted: #586763; --line: #d6dedb;
+  --accent: #0d6b6e; --accent-soft: #dcefee;
+  --good: #1a7f4e; --good-soft: #e1f2e8; --warn: #a96a00; --warn-soft: #fbf0d9; --bad: #c0392b; --bad-soft: #f9e2df;
+  --g-a: #1a7f4e; --g-b: #5c9a2e; --g-c: #b38600; --g-d: #d0661f; --g-e: #c0392b;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1514; --surface: #161e1d; --sunk: #1d2826; --ink: #e3ebe8; --muted: #93a39f; --line: #2a3735;
+  --accent: #4fc1c0; --accent-soft: #163634;
+  --good: #4cc98a; --good-soft: #143425; --warn: #e5a83b; --warn-soft: #3a2c10; --bad: #f07b6a; --bad-soft: #3d1d19;
+  --g-a: #4cc98a; --g-b: #9bcf5a; --g-c: #e5c03b; --g-d: #f0924d; --g-e: #f07b6a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --sunk: #1d2826; --ink: #e3ebe8; --muted: #93a39f; --line: #2a3735;
+  --accent: #4fc1c0; --accent-soft: #163634;
+  --good: #4cc98a; --good-soft: #143425; --warn: #e5a83b; --warn-soft: #3a2c10; --bad: #f07b6a; --bad-soft: #3d1d19;
+  --g-a: #4cc98a; --g-b: #9bcf5a; --g-c: #e5c03b; --g-d: #f0924d; --g-e: #f07b6a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 24px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; max-width: 70ch; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+section { display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 10px; }
+.disclaimer { font-size: 14px; color: var(--muted); max-width: 80ch; }
+
+/* Market weather */
+.weather { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 0; background: var(--surface); border: 1px solid var(--line); }
+@media (max-width: 760px) { .weather { grid-template-columns: 1fr; } }
+.weather .verdict { padding: 22px; display: grid; gap: 10px; align-content: start; background: var(--wx-soft); border-right: 1px solid var(--line); }
+@media (max-width: 760px) { .weather .verdict { border-right: 0; border-bottom: 1px solid var(--line); } }
+.weather .big { font-family: var(--f-display); font-size: 34px; font-weight: 700; color: var(--wx); line-height: 1; }
+.meter { display: flex; gap: 4px; }
+.meter i { flex: 1; height: 8px; background: var(--sunk); }
+.meter i.on { background: var(--wx); }
+.facts { padding: 18px 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; align-content: start; }
+.fact { display: grid; gap: 2px; }
+.fact b { font-family: var(--f-mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fact span { font-size: 13px; color: var(--muted); }
+.fact.bad b { color: var(--bad); } .fact.good b { color: var(--good); }
+
+/* Honesty strip */
+.honest { display: flex; gap: 16px; align-items: flex-start; padding: 16px 18px; border: 1px solid var(--line); background: var(--surface); }
+.honest .gauge { flex: 0 0 auto; display: grid; gap: 4px; justify-items: center; min-width: 92px; }
+.honest .gauge b { font-family: var(--f-display); font-size: 20px; color: var(--hz); }
+.honest .gauge .meter { width: 92px; }
+.honest .gauge .meter i.on { background: var(--hz); }
+.honest p { font-size: 15px; }
+@media (max-width: 520px) { .honest { flex-direction: column; } }
+
+/* Board controls */
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.controls label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+input, select { font: 15px var(--f-body); padding: 8px 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { font: 600 14px var(--f-body); padding: 8px 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.count { font-size: 14px; color: var(--muted); margin-left: auto; }
+
+/* Board */
+.board { border: 1px solid var(--line); background: var(--surface); }
+.head, .row { display: grid; grid-template-columns: 8px minmax(110px, 1.2fr) 92px 96px minmax(120px, 1fr) 70px 80px 104px; gap: 0 14px; align-items: center; padding: 10px 14px 10px 0; }
+.head { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: var(--sunk); border-bottom: 1px solid var(--line); }
+.row { border-bottom: 1px solid var(--line); cursor: pointer; }
+.row:hover { background: var(--sunk); }
+.row .stripe { align-self: stretch; margin-block: -10px; background: var(--lbl); }
+.tk b { font-family: var(--f-display); font-size: 18px; font-weight: 700; }
+.tk span { display: block; font-size: 13px; color: var(--muted); }
+.r { text-align: right; }
+.chg.up { color: var(--good); } .chg.down { color: var(--bad); }
+.scorebar { display: grid; gap: 3px; }
+.scorebar .track { height: 6px; background: var(--sunk); position: relative; }
+.scorebar .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+.scorebar small { font: 12px var(--f-mono); color: var(--muted); }
+.grade { display: inline-grid; place-items: center; width: 30px; height: 30px; font: 700 15px var(--f-display); color: #fff; background: var(--gc); border-radius: 4px; }
+.chip { display: inline-block; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: var(--lbl-soft); color: var(--lbl); white-space: nowrap; }
+.trend { font-size: 14px; font-weight: 600; }
+.trend.up { color: var(--good); } .trend.down { color: var(--bad); } .trend.mixed { color: var(--warn); }
+.spark { width: 100%; height: 34px; display: block; }
+.empty { padding: 28px; text-align: center; color: var(--muted); }
+@media (max-width: 860px) {
+  .head { display: none; }
+  .row { grid-template-columns: 6px 1fr auto; grid-template-areas: "s tk lbl" "s px grade" "s sc trend"; gap: 6px 12px; padding: 12px 14px 12px 0; }
+  .row .stripe { grid-area: s; } .row .c-tk { grid-area: tk; } .row .c-lbl { grid-area: lbl; justify-self: end; }
+  .row .c-px { grid-area: px; } .row .c-grade { grid-area: grade; justify-self: end; } .row .c-sc { grid-area: sc; } .row .c-trend { grid-area: trend; justify-self: end; }
+  .row .c-spark { display: none; }
+}
+
+/* Detail card */
+.detail { border-bottom: 1px solid var(--line); background: var(--bg); padding: 18px; display: grid; gap: 18px; }
+.dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.panel { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.panel h3 { font-size: 15px; }
+.why { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 15px; }
+.ladder { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 12px; font-size: 15px; align-items: baseline; }
+.ladder .p { font-family: var(--f-mono); text-align: right; }
+.ladder .pc { font-family: var(--f-mono); font-size: 13px; color: var(--muted); text-align: right; }
+.ladder .t { color: var(--good); } .ladder .s { color: var(--bad); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; font-size: 15px; }
+.kv dd { margin: 0; font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--muted); }
+.models { display: grid; gap: 6px; }
+.mrow { display: grid; grid-template-columns: 150px 1fr 34px; gap: 8px; align-items: center; font-size: 13px; }
+.mrow .track { height: 6px; background: var(--sunk); position: relative; }
+.mrow .dot { position: absolute; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translateX(-6px); }
+.mrow.off { color: var(--muted); } .mrow.off .dot { background: var(--line); }
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.calc label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.outgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.outgrid div { background: var(--surface); padding: 8px 10px; display: grid; gap: 1px; }
+.outgrid span { font-size: 12px; color: var(--muted); } .outgrid b { font: 500 16px var(--f-mono); font-variant-numeric: tabular-nums; }
+.warnline { font-size: 14px; color: var(--warn); }
+.tvnote { font-size: 13px; color: var(--muted); }
+
+/* Allocation */
+.alloc { background: var(--surface); border: 1px solid var(--line); padding: 16px; display: grid; gap: 14px; }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: 70px 1fr 64px; gap: 10px; align-items: center; font-size: 15px; }
+.bar .track { height: 14px; background: var(--sunk); position: relative; }
+.bar .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); background: var(--sunk); font-size: 13px; }
+th:first-child, td:first-child { text-align: left; }
+td { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--f-body); }
+td.pos { color: var(--good); } td.neg { color: var(--bad); }
+
+/* Glossary + advanced */
+.gloss { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 24px; margin: 0; }
+.gloss div { display: grid; gap: 2px; }
+.gloss dt { font-weight: 600; } .gloss dd { margin: 0; color: var(--muted); font-size: 15px; }
+details.adv { border: 1px solid var(--line); background: var(--surface); }
+details.adv > summary { cursor: pointer; padding: 14px 16px; font: 600 17px var(--f-display); list-style-position: inside; }
+details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+@media (prefers-reduced-motion: no-preference) { .row { transition: background .12s; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow" id="asof"></div>
+  <h1>IDX Risk Radar</h1>
+  <p id="lede"></p>
+  <p class="disclaimer">This page ranks stocks using price data only. It is not investment advice and I'm not a licensed advisor. "Shortlist" means a stock passed every data check below, not that it will go up. Past behaviour does not predict future prices.</p>
+</header>
+
+<section aria-labelledby="wx-h">
+  <h2 id="wx-h">Market weather</h2>
+  <div class="weather" id="weather"></div>
+</section>
+
+<section aria-labelledby="hon-h">
+  <h2 id="hon-h">How much can you trust the ranking?</h2>
+  <div class="honest" id="honest"></div>
+</section>
+
+<section aria-labelledby="board-h">
+  <h2 id="board-h">Stock board</h2>
+  <p class="muted small">Tap any stock to see why it got its label, a ready-made stop and target, and a size calculator. The coloured stripe on the left shows the label.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Filter by label" id="labelSeg">
+      <button type="button" data-v="all" aria-pressed="true">All</button>
+      <button type="button" data-v="shortlist" aria-pressed="false">Shortlist</button>
+      <button type="button" data-v="watch" aria-pressed="false">Watch</button>
+      <button type="button" data-v="avoid" aria-pressed="false">Avoid</button>
+    </div>
+    <label for="q">Search<input id="q" type="search" placeholder="e.g. BBCA" autocomplete="off"></label>
+    <label for="sector">Sector<select id="sector"></select></label>
+    <label for="maxRisk">Highest risk grade<select id="maxRisk"><option value="E">Any (A–E)</option><option value="D">Up to D</option><option value="C">Up to C</option><option value="B">Up to B</option><option value="A">A only</option></select></label>
+    <label for="sort">Sort by<select id="sort"><option value="score">Data score</option><option value="risk">Lowest risk</option><option value="liq">Most traded</option><option value="chg20">20-day change</option><option value="tk">Name</option></select></label>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="board" id="board" role="list"></div>
+</section>
+
+<section aria-labelledby="tp-h">
+  <h2 id="tp-h">Trade parameters</h2>
+  <p class="muted small">Entry, break-even (BEP), stop loss and take-profit prices for every stock on the board above, using the same filters and sort. BEP is the price you must sell above to cover broker fees and tax. Change the fees to match your broker.</p>
+  <div class="controls">
+    <label for="feeBuy">Buy fee (%)<input id="feeBuy" type="number" min="0" max="2" step="0.01" value="0.15"></label>
+    <label for="feeSell">Sell fee incl. 0.1% tax (%)<input id="feeSell" type="number" min="0" max="2" step="0.01" value="0.25"></label>
+  </div>
+  <div class="tbl"><table id="params"><thead><tr>
+    <th>Stock</th><th>Label</th><th>Entry</th><th>BEP</th><th>Stop loss</th><th>Loss to stop</th><th>Take profit 1</th><th>Gain TP1</th><th>Take profit 2</th><th>Gain TP2</th><th>Risk per lot</th><th>TP1 before stop (past yr)</th>
+  </tr></thead><tbody></tbody></table></div>
+  <p class="muted small">Prices are rounded to valid IDX ticks: stop down, BEP up, targets to the nearest tick. Gains are before fees. The last column is how often Take profit 1 was reached before the stop in the past year, against 40% needed to break even.</p>
+</section>
+
+<section aria-labelledby="al-h">
+  <h2 id="al-h">Splitting money across the shortlist</h2>
+  <div class="alloc" id="alloc"></div>
+</section>
+
+<section aria-labelledby="gl-h">
+  <h2 id="gl-h">Words on this page</h2>
+  <dl class="gloss">
+    <div><dt>Data score (0–100)</dt><dd>Where the stock ranks today among all 48, according to the models. 100 is the top. It is a rank, not a chance of profit.</dd></div>
+    <div><dt>Risk grade (A–E)</dt><dd>How bumpy the stock has been compared with the others: size of daily swings, worst days, biggest fall, sensitivity to IHSG, and how easy it is to trade. A is calmest, E is wildest.</dd></div>
+    <div><dt>Stop</dt><dd>The price where you sell to cap the loss. Here it sits 1.5 average daily ranges below the last price, rounded to a valid IDX tick.</dd></div>
+    <div><dt>Target 1 / Target 2</dt><dd>Prices to take profit: 1.5× and 2.5× the distance to the stop.</dd></div>
+    <div><dt>BEP (break-even price)</dt><dd>The selling price where you neither win nor lose after paying the buy fee, the sell fee and the 0.1% sales tax.</dd></div>
+    <div><dt>Lot</dt><dd>IDX trades in lots of 100 shares. "Risk per lot" is what one lot loses if the stop is hit.</dd></div>
+    <div><dt>Trend</dt><dd>Up: price above its 20, 50 and 100-day averages. Down: below all three. Mixed: anything in between.</dd></div>
+    <div><dt>Target-before-stop rate</dt><dd>Over the past year, how often this exact stop/target rule hit Target 1 before the stop within 20 trading days.</dd></div>
+    <div><dt>Traded value</dt><dd>Average rupiah traded per day over 20 days. Below Rp10 bn, orders can move the price and exits get harder.</dd></div>
+  </dl>
+</section>
+
+<details class="adv" id="adv">
+  <summary>The math behind it (for advanced readers)</summary>
+  <div id="advBody"></div>
+</details>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const rp = x => 'Rp' + Math.round(x).toLocaleString('id-ID');
+const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
+const sgn = (x, d = 1) => (x > 0 ? '+' : '') + pct(x, d);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const LBL = { shortlist: ['Shortlist', '--good', '--good-soft'], watch: ['Watch', '--warn', '--warn-soft'], avoid: ['Avoid for now', '--bad', '--bad-soft'] };
+const GRADE = { A: '--g-a', B: '--g-b', C: '--g-c', D: '--g-d', E: '--g-e' };
+const TREND = { up: '▲ Up', down: '▼ Down', mixed: '◆ Mixed' };
+const M = D.market, V = D.validation;
+const nShort = D.stocks.filter(s => s.label === 'shortlist').length;
+
+$('asof').textContent = `Daily data to ${D.as_of} · ${D.universe} liquid IDX stocks · from your TradingView chart`;
+$('lede').textContent = `Every stock below was measured the same way, by the numbers only: trend, swings, worst days, liquidity and four machine-learning models. ${nShort} of ${D.universe} pass every check today.`;
+
+// Market weather
+(function () {
+  const lvl = M.caution_pts, col = lvl >= 3 ? 'bad' : lvl === 2 ? 'warn' : 'good';
+  const msg = {
+    0: 'Conditions are calm. Normal position sizes are reasonable.',
+    1: 'Some warning signs. Keep positions a little smaller than usual.',
+    2: 'Several warning signs. Losses can come faster than usual.',
+    3: 'Most signals point the wrong way. In past markets like this, many stops got hit.',
+    4: 'Every warning light is on. Many stocks are falling together, so spreading money across stocks helps less than usual.',
+  }[lvl];
+  const el = $('weather'); el.style.setProperty('--wx', `var(--${col})`); el.style.setProperty('--wx-soft', `var(--${col}-soft)`);
+  el.innerHTML = `<div class="verdict"><span class="eyebrow">IHSG right now</span><span class="big">${M.caution}</span>
+    <div class="meter" aria-label="${lvl} of 4 warning signs">${[0, 1, 2, 3].map(k => `<i class="${k < lvl ? 'on' : ''}"></i>`).join('')}</div>
+    <p class="small">${lvl} of 4 warning signs. ${msg}</p></div>
+    <div class="facts">
+      <div class="fact bad"><b>${pct(M.dd)}</b><span>IHSG below its high in this data</span></div>
+      <div class="fact ${M.chg20d < 0 ? 'bad' : 'good'}"><b>${sgn(M.chg20d)}</b><span>IHSG over the last 20 days</span></div>
+      <div class="fact ${M.breadth_down > 0.5 ? 'bad' : ''}"><b>${Math.round(M.breadth_down * D.universe)} of ${D.universe}</b><span>stocks in a downtrend</span></div>
+      <div class="fact ${M.vol20 > M.vol_all ? 'bad' : ''}"><b>${(M.vol20 / M.vol_all).toFixed(1)}×</b><span>daily swings vs normal for this period</span></div>
+      <div class="fact"><b>${M.above50 ? 'Above' : 'Below'}</b><span>IHSG vs its 50-day average</span></div>
+      <div class="fact"><b>${M.above100 ? 'Above' : 'Below'}</b><span>IHSG vs its 100-day average</span></div>
+    </div>`;
+})();
+
+// Honesty
+(function () {
+  const e = V.ensemble, rel = D.reliable, ic = e.ic;
+  const lvl = rel ? 3 : ic > 0.05 ? 1 : 0, col = lvl >= 3 ? 'good' : lvl >= 1 ? 'warn' : 'bad';
+  const el = $('honest'); el.style.setProperty('--hz', `var(--${col})`);
+  el.innerHTML = `<div class="gauge"><b>${rel ? 'Good' : 'Low'}</b><div class="meter">${[0, 1, 2, 3].map(k => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</div><span class="small muted">reliability</span></div>
+    <div style="display:grid;gap:6px;min-width:0"><p><strong>${rel ? 'The models showed a dependable edge in testing.' : 'The models could not reliably predict which stocks would beat the others.'}</strong>
+    Tested on ${e.test_days} trading days they had never seen, the top-ranked fifth of stocks beat the bottom fifth by ${pct(e.spread20d)} over the next 20 days on average, but that result is ${rel ? 'statistically solid' : 'too small and too inconsistent to rely on'}.</p>
+    <p class="small muted">So treat the data score as a tie-breaker. The risk grade, stop distance and liquidity are measured directly from prices and are dependable. All of this history comes from a falling market (IHSG ${sgn(M.chg_window, 0)} over the data window), so it may not hold when the market turns.</p></div>`;
+})();
+
+// Board
+const sectors = [...new Set(D.stocks.map(s => s.sector))].sort();
+$('sector').innerHTML = '<option value="">All sectors</option>' + sectors.map(s => `<option>${esc(s)}</option>`).join('');
+$('legend').innerHTML = Object.entries(LBL).map(([k, [t, c]]) => `<span><i style="background:var(${c})"></i>${t}: ${k === 'shortlist' ? 'passes every check' : k === 'watch' ? 'mixed signals' : 'weak rank, high risk or hard to trade'}</span>`).join('');
+let filt = 'all', open = null;
+try { const saved = JSON.parse(localStorage.getItem('radar-filters') || 'null'); if (saved) { filt = saved.filt || 'all'; ['q', 'sector', 'maxRisk', 'sort'].forEach(k => { if (saved[k] != null) $(k).value = saved[k]; }); } } catch {}
+function saveFilters() { try { localStorage.setItem('radar-filters', JSON.stringify({ filt, q: $('q').value, sector: $('sector').value, maxRisk: $('maxRisk').value, sort: $('sort').value })); } catch {} }
+document.querySelectorAll('#labelSeg button').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.v === filt)); b.addEventListener('click', () => { filt = b.dataset.v; document.querySelectorAll('#labelSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); }); });
+['q', 'sector', 'maxRisk', 'sort'].forEach(id => $(id).addEventListener('input', render));
+
+function spark(v, up) {
+  const w = 120, h = 34, mn = Math.min(...v), mx = Math.max(...v), y = x => h - 3 - (h - 6) * (x - mn) / ((mx - mn) || 1);
+  const pts = v.map((x, i) => `${(i * w / (v.length - 1)).toFixed(1)},${y(x).toFixed(1)}`).join(' ');
+  const c = up ? 'var(--good)' : 'var(--bad)';
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${h} ${pts} ${w},${h}" fill="${c}" opacity=".12"/><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5" vector-effect="non-scaling-stroke"/><circle cx="${w}" cy="${y(v.at(-1))}" r="2.5" fill="${c}"/></svg>`;
+}
+
+function render() {
+  saveFilters();
+  const q = $('q').value.trim().toUpperCase(), sec = $('sector').value, mr = $('maxRisk').value, so = $('sort').value;
+  let L = D.stocks.filter(s => (filt === 'all' || s.label === filt) && (!q || s.tk.includes(q)) && (!sec || s.sector === sec) && s.risk_grade <= mr);
+  const key = { score: s => -s.score, risk: s => s.risk_pct, liq: s => -s.liq_bn, chg20: s => -s.chg20d, tk: s => s.tk };
+  L.sort((a, b) => { const ka = key[so](a), kb = key[so](b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
+  $('count').textContent = `${L.length} of ${D.stocks.length} stocks`;
+  const head = `<div class="head" aria-hidden="true"><span></span><span>Stock</span><span class="r">Price</span><span class="r">20 days</span><span>Data score</span><span>Risk</span><span>Trend</span><span>Label</span></div>`;
+  $('board').innerHTML = head + (L.length ? L.map(s => {
+    const [lt, lc, ls] = LBL[s.label];
+    return `<div class="row" role="listitem" tabindex="0" aria-expanded="${open === s.tk}" data-tk="${s.tk}" style="--lbl:var(${lc});--lbl-soft:var(${ls})">
+      <span class="stripe"></span>
+      <span class="c-tk tk"><b>${s.tk}</b><span>${esc(s.sector)}</span></span>
+      <span class="c-px r num">${rp(s.price)}</span>
+      <span class="c-spark r"><span class="num chg ${s.chg20d >= 0 ? 'up' : 'down'}">${sgn(s.chg20d)}</span>${spark(s.spark, s.chg20d >= 0)}</span>
+      <span class="c-sc scorebar"><span class="track"><span class="fill" style="width:${s.score}%"></span></span><small>${s.score} / 100</small></span>
+      <span class="c-grade"><span class="grade" style="--gc:var(${GRADE[s.risk_grade]})" title="Risk grade ${s.risk_grade}">${s.risk_grade}</span></span>
+      <span class="c-trend trend ${s.trend}">${TREND[s.trend]}</span>
+      <span class="c-lbl"><span class="chip">${lt}</span></span>
+    </div>${open === s.tk ? detail(s) : ''}`;
+  }).join('') : `<div class="empty">No stocks match these filters. Try "All" or a higher risk grade.</div>`);
+  document.querySelectorAll('.row').forEach(r => {
+    const go = () => { open = open === r.dataset.tk ? null : r.dataset.tk; render(); if (open) document.querySelector(`.row[data-tk="${open}"]`)?.focus(); };
+    r.addEventListener('click', go); r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  if (open) wireCalc(D.stocks.find(s => s.tk === open));
+  renderParams(L);
+}
+
+const tickOf = p => p < 200 ? 1 : p < 500 ? 2 : p < 2000 ? 5 : p < 5000 ? 10 : 25;
+const bepOf = e => { const b = (+$('feeBuy').value || 0) / 100, s = (+$('feeSell').value || 0) / 100, raw = e * (1 + b) / (1 - s), t = tickOf(raw); return Math.ceil(raw / t) * t; };
+let lastList = [];
+function renderParams(L) {
+  lastList = L;
+  $('params').querySelector('tbody').innerHTML = L.map(s => {
+    const p = s.plan, [lt, lc] = LBL[s.label], bep = bepOf(p.entry), hit = s.bracket.p_tp_first;
+    return `<tr><td><b>${s.tk}</b></td><td style="font-family:var(--f-body);color:var(${lc});font-weight:600">${lt}</td>
+      <td>${rp(p.entry)}</td><td>${rp(bep)}</td><td class="neg">${rp(p.stop)}</td><td class="neg">${sgn(p.stop / p.entry - 1)}</td>
+      <td class="pos">${rp(p.tp1)}</td><td class="pos">${sgn(p.tp1 / p.entry - 1)}</td><td class="pos">${rp(p.tp2)}</td><td class="pos">${sgn(p.tp2 / p.entry - 1)}</td>
+      <td>${rp(p.lot_risk)}</td><td class="${hit >= s.bracket.breakeven ? 'pos' : 'neg'}">${pct(hit, 0)}</td></tr>`;
+  }).join('') || '<tr><td colspan="12" style="text-align:center;font-family:var(--f-body)">No stocks match the board filters.</td></tr>';
+}
+['feeBuy', 'feeSell'].forEach(id => $(id).addEventListener('input', () => { renderParams(lastList); if (open) render(); }));
+
+const MODEL_NAMES = { ridge: 'Ridge regression', logit: 'Logistic regression', gbt: 'Boosted trees', nn: 'Neural network', factor: 'Factor rules' };
+function detail(s) {
+  const p = s.plan, b = s.bracket;
+  const agreeTxt = s.agreement >= 0.6 ? 'The models mostly agree.' : s.agreement >= 0.3 ? 'The models partly agree.' : 'The models disagree, so the score is shaky.';
+  const sum = s.label === 'shortlist' ? `${s.tk} passed every check: a top-30% rank, risk grade ${s.risk_grade}, enough daily trading, and a stop/target rule that held up last year.`
+    : s.label === 'avoid' ? `${s.tk} failed at least one important check, so the data says to leave it for now.` : `${s.tk} has mixed signals. Keep it on a watch list and check again later.`;
+  const lv = s.levels;
+  return `<div class="detail">
+    <p><strong>${sum}</strong></p>
+    <div class="dgrid">
+      <div class="panel"><h3>Why this label</h3><ul class="why">${s.why.map(w => `<li>${esc(w[0].toUpperCase() + w.slice(1))}</li>`).join('')}</ul>
+        <h3>What the models think</h3><div class="models">${Object.entries(s.model_ranks).map(([k, v]) => `<div class="mrow ${D.weights[k] > 0 ? '' : 'off'}"><span>${MODEL_NAMES[k]}${D.weights[k] > 0 ? '' : ' (not used)'}</span><span class="track"><span class="dot" style="left:${v}%"></span></span><span class="num">${v}</span></div>`).join('')}</div>
+        <p class="small muted">${agreeTxt} Models marked "not used" showed no skill in testing, so they get no weight.</p></div>
+      <div class="panel"><h3>Ready-made plan from the last price</h3>
+        <div class="ladder">
+          <span class="t">Target 2 (2.5× risk)</span><span class="p t">${rp(p.tp2)}</span><span class="pc">${sgn(p.tp2 / p.entry - 1)}</span>
+          <span class="t">Target 1 (1.5× risk)</span><span class="p t">${rp(p.tp1)}</span><span class="pc">${sgn(p.tp1 / p.entry - 1)}</span>
+          <span>Break-even after fees (BEP)</span><span class="p">${rp(bepOf(p.entry))}</span><span class="pc">${sgn(bepOf(p.entry) / p.entry - 1, 2)}</span>
+          <span>Entry (last price)</span><span class="p">${rp(p.entry)}</span><span class="pc"></span>
+          <span class="s">Stop</span><span class="p s">${rp(p.stop)}</span><span class="pc">${sgn(p.stop / p.entry - 1)}</span>
+        </div>
+        <dl class="kv"><dt>Risk per lot (100 shares)</dt><dd>${rp(p.lot_risk)}</dd>
+          <dt>Target-before-stop rate (past year)</dt><dd>${pct(b.p_tp_first, 0)}</dd><dt>Needed to break even</dt><dd>${pct(b.breakeven, 0)}</dd></dl>
+        <p class="small muted">${lv.res.length ? `Price has stalled before near ${lv.res.map(x => rp(x.price)).join(', ')}.` : ''} ${lv.sup.length ? `It has found buyers near ${lv.sup.map(x => rp(x.price)).join(', ')}.` : ''}</p>
+        <p class="tvnote">${D.drawn && D.drawn.includes(s.tk) ? `These levels are drawn on your TradingView chart for ${s.tk} (labels start with RADAR).` : ''}</p></div>
+      <div class="panel"><h3>How rough the ride has been</h3>
+        <dl class="kv"><dt>Typical daily move</dt><dd>±${pct(s.atr_pct)}</dd><dt>Bad day (1 in 20)</dt><dd>−${pct(s.var95)}</dd><dt>Average of the worst days</dt><dd>−${pct(s.cvar95)}</dd>
+          <dt>Biggest fall in this data</dt><dd>${pct(s.maxdd, 0)}</dd><dt>Now below its high</dt><dd>${pct(s.dd_now, 0)}</dd><dt>Moves vs IHSG (beta)</dt><dd>${s.beta}×</dd>
+          <dt>Traded per day</dt><dd>Rp${s.liq_bn} bn</dd><dt>RSI 14</dt><dd>${s.rsi}</dd></dl></div>
+      <div class="panel"><h3>How many lots?</h3>
+        <div class="calc"><label for="c-acct">Your trading money (Rp)<input id="c-acct" type="number" min="0" step="1000000" value="10000000"></label>
+          <label for="c-risk">Max loss per trade (% of money)<input id="c-risk" type="number" min="0.1" max="5" step="0.1" value="1"></label></div>
+        <div class="outgrid" id="c-out"></div><div class="warnline" id="c-warn"></div>
+        <p class="small muted">Example: Rp10 million, risking 1%. Lots are rounded down and capped so one stock never takes more than 25% of your money.</p></div>
+    </div></div>`;
+}
+let calcAcct = 10000000, calcRisk = 1;
+function wireCalc(s) {
+  const a = $('c-acct'), r = $('c-risk'); a.value = calcAcct; r.value = calcRisk;
+  const run = () => {
+    calcAcct = +a.value; calcRisk = +r.value;
+    const p = s.plan, budget = calcAcct * calcRisk / 100, byRisk = Math.floor(budget / p.lot_risk), byCap = Math.floor(calcAcct * 0.25 / (p.entry * 100)), lots = Math.max(0, Math.min(byRisk, byCap));
+    const cost = lots * 100 * p.entry;
+    $('c-out').innerHTML = [['Lots', lots], ['Money used', rp(cost)], ['Loss if stopped', '−' + rp(lots * p.lot_risk)], ['Gain at Target 1', '+' + rp(lots * 100 * (p.tp1 - p.entry))], ['Gain at Target 2', '+' + rp(lots * 100 * (p.tp2 - p.entry))], ['Share of your money', calcAcct ? pct(cost / calcAcct, 0) : '–']]
+      .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+    $('c-warn').textContent = lots === 0 ? `Your risk budget (${rp(budget)}) is smaller than the risk on one lot (${rp(p.lot_risk)}). Use more money, a higher risk %, or skip this stock.` : byCap < byRisk ? 'Capped at 25% of your money in one stock.' : '';
+  };
+  a.addEventListener('input', run); r.addEventListener('input', run); run();
+}
+
+// Allocation
+(function () {
+  const P = D.portfolio, el = $('alloc');
+  if (!P.weights || !P.weights.length) { el.innerHTML = '<p>No stock passes every check today, so there is nothing to split. That is itself a signal: the data favours waiting.</p>'; return; }
+  if (P.weights.length === 1) { el.innerHTML = `<p>Only ${P.weights[0].tk} passes every check today. One stock cannot be diversified, so keep its size small.</p>`; return; }
+  el.innerHTML = `<p>If you put money into the shortlist, this split had the smallest swings over the last 120 days. It uses each stock's own volatility and how they move together. No single stock gets more than 35%.</p>
+    <div class="bars">${P.weights.map(w => `<div class="bar"><b>${w.tk}</b><span class="track"><span class="fill" style="width:${w.w * 100}%"></span></span><span class="num r">${pct(w.w, 0)}</span></div>`).join('')}</div>
+    <dl class="kv" style="max-width:520px"><dt>Yearly swing of the mix</dt><dd>${pct(P.port_vol, 0)}</dd><dt>Average swing of each stock alone</dt><dd>${pct(P.avg_stock_vol, 0)}</dd>
+      <dt>How alike they move (0 = unrelated, 1 = identical)</dt><dd>${P.avg_corr}</dd></dl>
+    <p class="small muted">Mixing ${P.weights.length} stocks cut the swings by ${pct(1 - P.port_vol / P.avg_stock_vol, 0)}. With only ${P.weights.length} names this is still concentrated. Adding more stocks from different sectors would spread risk further.</p>`;
+})();
+
+// Advanced
+(function () {
+  const rows = Object.entries(V).map(([k, v]) => `<tr><td>${esc(v.label)}</td><td class="${v.ic > 0 ? 'pos' : 'neg'}">${v.ic.toFixed(3)}</td><td>${pct(v.ic_hit, 0)}</td><td>${v.ic_t_nonoverlap ?? '–'}</td><td>${v.n_independent}</td><td class="${v.spread20d > 0 ? 'pos' : 'neg'}">${sgn(v.spread20d, 2)}</td><td>${k === 'ensemble' ? '–' : pct(D.weights[k] || 0, 0)}</td></tr>`).join('');
+  const imp = D.importance.slice(0, 12).map(f => `<tr><td>${esc(f.label)}</td><td>${pct(f.gbt, 1)}</td><td class="${f.ridge > 0 ? 'pos' : 'neg'}">${f.ridge.toFixed(3)}</td><td class="${f.logit > 0 ? 'pos' : 'neg'}">${f.logit.toFixed(3)}</td></tr>`).join('');
+  $('advBody').innerHTML = `
+  <div style="display:grid;gap:8px"><h3>Pipeline</h3><ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
+    <li>Data: ${D.bars} daily bars per stock (${D.from} to ${D.as_of}) for ${D.universe} IDX stocks plus IHSG, pulled from the live TradingView chart.</li>
+    <li>Features (${D.features.length}): momentum over 5/20/60/100 days, return vs IHSG, distance from 20/50/100-day averages, RSI, Bollinger %B, ATR, 20/60-day and EWMA (λ=0.94) volatility, drawdown, beta, correlation, stock-specific volatility, skewness, downside deviation, 5-day variance ratio, traded value and volume surge.</li>
+    <li>Each feature is ranked across stocks on each day, so the models compare stocks with each other and ignore market-wide moves.</li>
+    <li>Target: each stock's rank by return over the next ${D.horizon} trading days.</li>
+    <li>Models: ridge regression, L2 logistic regression (beats the median or not), gradient-boosted trees (120 trees, depth 3), a neural network (26→16→8→1, ReLU, Adam), and a fixed factor rule (momentum + trend − volatility − downside risk).</li>
+    <li>Walk-forward test: train only on the past, skip ${D.horizon} days so no answer leaks in, test on the next ${D.horizon} days, then roll forward.</li>
+    <li>Ensemble: each model's weight equals its positive out-of-sample rank IC. Models with no skill get zero weight.</li>
+    <li>Risk grade: average cross-sectional percentile of 60-day volatility, CVaR 95%, max drawdown, beta, illiquidity and excess kurtosis, split into fifths.</li>
+    <li>Shortlist rule: data score ≥ 70, risk grade A–C, traded value ≥ Rp10 bn a day, and stop/target expectancy above −0.1R over the past year.</li>
+    <li>Allocation: long-only minimum-variance weights on 120 days of returns, capped at 35% each.</li></ol></div>
+  <div style="display:grid;gap:8px"><h3>Out-of-sample validation</h3>
+    <div class="tbl"><table><thead><tr><th>Model</th><th>Rank IC</th><th>Days IC &gt; 0</th><th>t-stat (non-overlap)</th><th>Independent periods</th><th>Top − bottom 20%, 20d</th><th>Ensemble weight</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small muted">Rank IC is the correlation between the predicted ranking and the realised ranking; 0 means no skill. A reliable edge here requires t ≥ 2 over at least 8 independent periods; this data allows ${V.ensemble.n_independent}. The ensemble row is optimistic because its weights were picked on the same test window.</p></div>
+  <div style="display:grid;gap:8px"><h3>Which inputs mattered</h3>
+    <div class="tbl"><table><thead><tr><th>Feature</th><th>Boosted-tree gain share</th><th>Ridge coefficient</th><th>Logistic coefficient</th></tr></thead><tbody>${imp}</tbody></table></div>
+    <p class="small muted">Positive coefficients mean a higher rank on that feature went with better 20-day returns in this sample. Several are negative on volatility and downside risk: calmer stocks did relatively better during this fall.</p></div>
+  <div style="display:grid;gap:6px"><h3>Limits</h3><ul class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
+    <li>About 14 months of data, almost all in a falling market. Models trained on one regime often fail in the next.</li>
+    <li>Prices only. No earnings, valuation, dividends, news or foreign flows.</li>
+    <li>The universe is 48 large, liquid names chosen in advance, so smaller stocks are not covered.</li>
+    <li>Costs (broker fees, tax and spread), auto-rejection limits and gaps are not modelled. A gap can skip past a stop.</li>
+    <li>Rerun the pipeline regularly: <span class="mono">node quant/fetch.mjs</span> then <span class="mono">node quant/model.mjs</span>.</li></ul></div>`;
+})();
+
+render();
+</script>

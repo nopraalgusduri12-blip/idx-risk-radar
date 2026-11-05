@@ -1,0 +1,28 @@
+diff --git a/node_modules/tradingview-mcp/src/core/health.js b/node_modules/tradingview-mcp/src/core/health.js
+index d534998..455ba35 100644
+--- a/node_modules/tradingview-mcp/src/core/health.js
++++ b/node_modules/tradingview-mcp/src/core/health.js
+@@ -360,12 +360,20 @@ export async function launch({ port, kill_existing, _deps } = {}) {
+   if (killFirst) await killExisting();
+ 
+   const cdpArgs = [`--remote-debugging-port=${cdpPort}`];
+-  let child = _spawnDetached(deps.spawn, tvPath, cdpArgs);
++  const isWindowsApps = platform === 'win32' && WINDOWS_APPS_RE.test(tvPath);
++  let child = null;
+   let info = null;
+   let usedLocalCopy = false;
+ 
+-  if (platform === 'win32' && WINDOWS_APPS_RE.test(tvPath)) {
+-    const earlyFailure = await _spawnFailedEarly(child);
++  try {
++    child = _spawnDetached(deps.spawn, tvPath, cdpArgs);
++  } catch (e) {
++    // Spawning from WindowsApps can throw EPERM synchronously; let the local-copy fallback handle it.
++    if (!isWindowsApps) throw e;
++  }
++
++  if (isWindowsApps) {
++    const earlyFailure = child ? await _spawnFailedEarly(child) : 'spawn threw';
+     if (!earlyFailure) {
+       info = await _waitForCdp({ cdpPort, attempts: 15, delay: deps.delay, probeCdp: deps.probeCdp });
+     }

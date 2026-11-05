@@ -1,0 +1,6 @@
+{ "title": "BBRI Risk Sheet", "heading": "Bank Rakyat Indonesia (BBRI) risk sheet", "ccy": "Rp", "ccyName": "Rp", "dp": 0, "tick": 10, "lot": 100, "acct": 100000000,
+  "feed": "IDX delayed daily feed",
+  "gridNote": "BBRI fell about 40% from its high during this sample, so short brackets rode the trend and every long bracket lost. That reflects this period's downtrend, not a dependable edge; a trend reversal would flip it.",
+  "shortNote": "On IDX, short selling is limited to stocks on the exchange's approved list and needs a margin account with an approved broker, so check with your broker whether this setup is possible at all.",
+  "longNote": "This is a counter-trend trade: price is below the 20, 50 and 200-day averages, and every long bracket lost money in the backtest.",
+  "marketNote": "IDX trades in lots of 100 shares with a Rp10 price tick between Rp2,000 and Rp5,000; stops and targets are rounded to valid ticks. Daily auto-rejection limits can halt trading before a stop fills. The last bar (28 Oct) may still have been in progress when the data was pulled." }

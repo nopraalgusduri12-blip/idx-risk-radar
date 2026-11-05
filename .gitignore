@@ -1,0 +1,10 @@
+node_modules/
+quant/data/
+quant/idx-risk-radar.html
+quant/single/*.json
+!quant/single/meta_*.json
+quant/single/*.html
+screenshots/
+.claude/
+.env
+*.log

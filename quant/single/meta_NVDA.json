@@ -1,0 +1,2 @@
+{ "title": "NVDA Risk Sheet", "heading": "NVIDIA (NVDA) risk sheet", "ccy": "$", "ccyName": "$", "dp": 2, "tick": 0.01, "lot": 1, "acct": 10000,
+  "feed": "Cboe One feed", "gridNote": "Over this period, wide targets rarely filled within 20 bars, so tight targets beat ambitious ones." }
