@@ -159,3 +159,22 @@ Combines quantitative-finance models with machine learning and compiles them int
 ### Portfolio lab
 
 Ledoit-Wolf shrinkage (towards scaled identity) of the 250-day daily covariance. The browser and the `radar_portfolio` tool compute portfolio volatility, parametric VaR/ES (1 and 20 days), each holding's share of risk, the diversification benefit, the effective number of stocks, stress losses, sector concentration, and equal-weight / minimum-variance / risk-parity splits.
+
+## 12. Web backend and collector (`src/web.js`, `src/core.js`, `quant/collect.mjs`, `quant/dashboard.mjs`)
+
+- **Shared core** (`src/core.js`): data access with mtime caching (`RADAR_DATA_DIR`), the stocks table with integrated verdicts merged in, portfolio risk, the pipeline runner, and every MCP tool definition. Both servers use it, so the local stdio server and the web backend answer identically.
+- **Web backend:**
+  - Plain `node:http` with no web framework.
+  - Token login that sets a 30-day HttpOnly, SameSite=Lax session cookie (an HMAC of the token, Secure behind HTTPS).
+  - Bearer-token JSON API.
+  - Stateless MCP over Streamable HTTP at `/mcp` (header token) or `/mcp/<token>` (for claude.ai).
+  - Gzip uploads with an optional separate ingest token.
+  - One background retrain job at a time.
+  - Security headers (CSP, nosniff, frame-deny, no-referrer, no-store) and a per-IP login rate limit.
+- **Dashboard rendering** (`quant/dashboard.mjs`): the same template as the static build, rendered from the latest JSON. Embedded data is escaped so it can't close the script tag.
+- **Collector:**
+  - On the TradingView PC: fetch, then train + risk engine locally (default), or upload raw bars for the server to retrain.
+  - Optionally redraws the chart lines.
+  - Uploads gzipped JSON over HTTPS.
+- **Deployment:** `Dockerfile` (node:20-slim, non-root, healthcheck, `/data` volume), `fly.toml` (Singapore, volume), `render.yaml` (disk), `docker-compose.yml` (optional Cloudflare Tunnel). See DEPLOY.md.
+- **Tests** (`test/web.test.js`): login, cookie, CSP, every API route, MCP with header and path tokens, upload auth and validation, gzip publish.

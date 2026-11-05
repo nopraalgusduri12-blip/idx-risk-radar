@@ -1,13 +1,14 @@
 {
   "name": "idx-risk-radar",
-  "version": "0.1.0",
-  "description": "Data-only risk screening for Indonesian (IDX) stocks from TradingView Desktop, with walk-forward-tested ML ranking, trade levels drawn on the chart, a beginner dashboard, and an MCP server for Claude.",
+  "version": "0.3.0",
+  "description": "Data-only risk screening for Indonesian (IDX) stocks: quant + ML risk engine on TradingView data, a web dashboard and API you can open from any device, and an MCP server for Claude (local or claude.ai custom connector).",
   "type": "module",
   "main": "src/server.js",
-  "bin": { "idx-risk-radar": "src/server.js" },
+  "bin": {
+    "idx-risk-radar": "src/server.js"
+  },
   "scripts": {
     "start": "node src/server.js",
-    "start:http": "node src/server.js --http",
     "postinstall": "patch-package",
     "fetch": "node quant/fetch.mjs",
     "model": "node quant/model.mjs quant/data/daily.json --out quant/data/model.json",
@@ -16,9 +17,15 @@
     "dashboard": "node quant/build-radar.mjs",
     "radar": "npm run fetch && npm run model && npm run risk && npm run dashboard",
     "launch": "node node_modules/tradingview-mcp/src/cli/index.js launch",
-    "test": "node --test test/model.test.js test/lib.test.js"
+    "test": "node --test test/model.test.js test/lib.test.js test/web.test.js",
+    "web": "node src/web.js",
+    "collect": "node quant/collect.mjs",
+    "collect:draw": "node quant/collect.mjs --draw",
+    "collect:server": "node quant/collect.mjs --server-compute"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "patch-package": "^8.0.0",
@@ -26,6 +33,9 @@
     "zod": "^3.25.0 || ^4.0.0"
   },
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/nopraalgusduri12-blip/idx-risk-radar.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nopraalgusduri12-blip/idx-risk-radar.git"
+  },
   "homepage": "https://github.com/nopraalgusduri12-blip/idx-risk-radar"
 }

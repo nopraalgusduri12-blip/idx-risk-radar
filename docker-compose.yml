@@ -1,0 +1,19 @@
+# Self-hosting on a home PC, mini PC or VPS. Put RADAR_TOKEN in a .env file next to this file.
+# Optional: uncomment the tunnel service to reach it from anywhere through Cloudflare (see DEPLOY.md).
+services:
+  radar:
+    build: .
+    restart: unless-stopped
+    environment:
+      RADAR_TOKEN: ${RADAR_TOKEN:?set RADAR_TOKEN in .env}
+      RADAR_DATA_DIR: /data
+    volumes:
+      - radar-data:/data
+    ports:
+      - "127.0.0.1:8080:8080"
+  # tunnel:
+  #   image: cloudflare/cloudflared:2025.4.0
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+volumes:
+  radar-data:

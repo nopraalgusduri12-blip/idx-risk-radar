@@ -1,0 +1,8 @@
+node_modules
+quant/data
+quant/idx-risk-radar.html
+screenshots
+.git
+.claude
+.env
+*.log

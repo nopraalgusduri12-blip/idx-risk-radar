@@ -1,0 +1,18 @@
+# Render Blueprint. The persistent disk needs a paid instance type; without a disk, data is lost on
+# every restart and the collector must upload again. See DEPLOY.md.
+services:
+  - type: web
+    name: idx-risk-radar
+    runtime: docker
+    plan: starter
+    region: singapore
+    healthCheckPath: /healthz
+    envVars:
+      - key: RADAR_TOKEN
+        generateValue: true
+      - key: RADAR_DATA_DIR
+        value: /data
+    disk:
+      name: radar-data
+      mountPath: /data
+      sizeGB: 1
