@@ -15,14 +15,17 @@
     "draw": "node quant/draw.mjs all",
     "risk": "node quant/risk.mjs quant/data/daily.json quant/data/model.json --out quant/data/risk.json",
     "dashboard": "node quant/build-radar.mjs",
-    "radar": "npm run fetch && npm run model && npm run risk && npm run dashboard",
+    "radar": "npm run fetch && npm run model && npm run risk && npm run daytrade && npm run dashboard",
     "launch": "node node_modules/tradingview-mcp/src/cli/index.js launch",
     "test": "node --test test/model.test.js test/lib.test.js test/web.test.js",
     "web": "node src/web.js",
     "collect": "node quant/collect.mjs",
     "collect:draw": "node quant/collect.mjs --draw",
     "collect:server": "node quant/collect.mjs --server-compute",
-    "web:local": "node --env-file=.env.local src/web.js"
+    "web:local": "node --env-file=.env.local src/web.js",
+    "daytrade": "node quant/daytrade.mjs quant/data/daily.json quant/data/risk.json --out quant/data/daytrade.json",
+    "morning": "node quant/fetch.mjs --update && node quant/daytrade.mjs quant/data/daily.json quant/data/risk.json --out quant/data/daytrade.json && node quant/build-radar.mjs",
+    "collect:morning": "node quant/collect.mjs --morning"
   },
   "engines": {
     "node": ">=18"

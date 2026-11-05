@@ -53,6 +53,25 @@ Outputs:
 
 The fetch and draw steps switch the chart symbol while they run and restore it at the end.
 
+## Daily day-trade plan (buy in the morning, sell in the afternoon)
+
+`quant/daytrade.mjs` turns everything into a simple plan for each trading day:
+
+- **Picks:** the top 3 liquid stocks each morning, ranked by ridge, logistic and a dropout deep network. Their weights come from validation skill, and stocks with Severe integrated risk are excluded.
+- **Levels per pick:** buy near the open; an intraday stop at open − 0.5 × ATR; a target at open + 0.75 × ATR; break-even after fees. If neither level is hit, sell before the close (15:30–15:49 WIB, or the closing auction).
+- **Morning rule:** how each kind of opening gap (in the stock's own daily swings) performed after fees.
+- **Morning check (dashboard):** type in the actual opening price and get go / caution / skip, the recalculated stop and target, and the number of lots for your money and risk.
+- **Honest backtest:** walk-forward over the last ~4 years after a 0.4% round-trip cost, compared with buying every liquid stock. `edge_after_costs` says whether the picks made money reliably (t ≥ 2).
+
+Daily routine on the PC with TradingView:
+
+```bash
+npm run morning        # after 09:05 WIB: update recent bars incl. today's open -> plan -> dashboard (~3 min)
+npm run radar          # in the evening, now and then: full history + retrain every model
+```
+
+With a remote server, use `npm run collect:morning` to update and upload in one go. The plan is also available at `/api/daytrade` and through the `radar_daytrade` MCP tool.
+
 ## Use it from Claude
 
 ### Claude Desktop or Claude Code (local, recommended)

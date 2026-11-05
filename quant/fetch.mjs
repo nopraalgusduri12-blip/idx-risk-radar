@@ -1,12 +1,15 @@
 // Pull daily OHLCV for a universe of liquid IDX stocks (plus the IHSG index) from the live
 // TradingView chart, one symbol at a time, then restore the chart's original symbol/timeframe.
-// Usage: node quant/fetch.mjs
-import { writeFileSync, mkdirSync } from 'fs';
+// Usage: node quant/fetch.mjs            full history (~1,500 bars per symbol, ~10 minutes)
+//        node quant/fetch.mjs --update   only the recent bars (incl. today's forming bar), merged into the
+//                                        existing quant/data/daily.json (~2 minutes; for morning/day-trade runs)
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { chart, data, ui } from 'tradingview-mcp/core';
 
 // The chart loads ~300 daily bars by default. Ask the series for more history, chunk by chunk,
 // until it reaches TARGET_BARS or stops growing, then read every loaded bar.
-const TARGET_BARS = +(process.env.RADAR_BARS || 1500);
+const UPDATE = process.argv.includes('--update') && existsSync('quant/data/daily.json');
+const TARGET_BARS = UPDATE ? 0 : +(process.env.RADAR_BARS || 1500);
 const SERIES = 'window.TradingViewApi._activeChartWidgetWV.value()._chartWidget.model().mainSeries()';
 const evalPage = async expression => (await ui.uiEvaluate({ expression })).result;
 async function loadHistory() {
@@ -59,7 +62,15 @@ for (const sym of [INDEX, ...UNIVERSE.map(s => 'IDX:' + s)]) {
     failed.push(sym); console.log(sym.padEnd(16), 'FAILED', e.message);
   }
 }
-writeFileSync('quant/data/daily.json', JSON.stringify({ fetched_at: new Date().toISOString(), index: INDEX, bars: out, failed }));
+// In update mode, keep the stored history and replace/append only the bars that were just read.
+if (UPDATE) {
+  const old = JSON.parse(readFileSync('quant/data/daily.json', 'utf8'));
+  for (const [sym, bars] of Object.entries(old.bars)) {
+    if (!out[sym]) { out[sym] = bars; continue; }
+    const from = out[sym][0].time; out[sym] = [...bars.filter(b => b.time < from), ...out[sym]];
+  }
+}
+writeFileSync('quant/data/daily.json', JSON.stringify({ fetched_at: new Date().toISOString(), index: INDEX, bars: out, failed, mode: UPDATE ? 'update' : 'full' }));
 
 await chart.setSymbol({ symbol: origSymbol });
 await chart.setTimeframe({ timeframe: origTf });

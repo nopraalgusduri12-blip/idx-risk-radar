@@ -4,6 +4,8 @@
 //   node quant/collect.mjs --server-compute fetch -> upload raw bars; the server retrains (slower on small hosts)
 //   node quant/collect.mjs --no-fetch       skip the TradingView fetch and upload what is already in quant/data
 //   node quant/collect.mjs --draw           also redraw the levels on the TradingView charts
+//   node quant/collect.mjs --morning        quick morning run for day trading: update recent bars (incl. today's
+//                                           open), rebuild the day-trade plan, upload (~3 minutes; run after 09:05 WIB)
 //
 // Environment: RADAR_SERVER (e.g. https://radar.example.com), RADAR_INGEST_TOKEN or RADAR_TOKEN.
 import { readFileSync, existsSync } from 'fs';
@@ -30,7 +32,8 @@ async function post(path, body) {
   return JSON.parse(text);
 }
 
-if (!has('--no-fetch')) step('Fetching daily bars from TradingView', ['quant/fetch.mjs']);
+const MORNING = has('--morning');
+if (!has('--no-fetch')) step(MORNING ? 'Updating recent bars from TradingView' : 'Fetching daily bars from TradingView', MORNING ? ['quant/fetch.mjs', '--update'] : ['quant/fetch.mjs']);
 const daily = JSON.parse(readFileSync('quant/data/daily.json', 'utf8'));
 const source = `collector@${hostname()}`;
 
@@ -38,16 +41,18 @@ if (has('--server-compute')) {
   console.log(`\n== Uploading raw bars (${Object.keys(daily.bars).length} symbols) to ${SERVER}`);
   console.log(await post('/api/ingest', { ...daily, source }));
 } else {
-  if (!has('--no-fetch') || !existsSync('quant/data/model.json')) {
+  if (!MORNING && (!has('--no-fetch') || !existsSync('quant/data/model.json'))) {
     step('Training and validating models', ['quant/model.mjs', 'quant/data/daily.json', '--out', 'quant/data/model.json']);
     step('Running the integrated risk engine', ['quant/risk.mjs', 'quant/data/daily.json', 'quant/data/model.json', '--out', 'quant/data/risk.json']);
   }
   const model = JSON.parse(readFileSync('quant/data/model.json', 'utf8'));
   const risk = existsSync('quant/data/risk.json') ? JSON.parse(readFileSync('quant/data/risk.json', 'utf8')) : null;
   if (!risk) { console.error('quant/data/risk.json is missing; run `npm run risk` first.'); process.exit(1); }
+  step('Building the day-trade plan', ['quant/daytrade.mjs', 'quant/data/daily.json', 'quant/data/risk.json', '--out', 'quant/data/daytrade.json']);
+  const daytrade = JSON.parse(readFileSync('quant/data/daytrade.json', 'utf8'));
   if (has('--draw')) step('Drawing levels on TradingView charts', ['quant/draw.mjs', 'all']);
   console.log(`\n== Publishing results (as of ${model.as_of}) to ${SERVER}`);
-  console.log(await post('/api/publish', { model, risk, source, drawn: has('--draw') ? model.stocks.map(s => s.tk) : [] }));
+  console.log(await post('/api/publish', { model, risk, daytrade, source, drawn: has('--draw') ? model.stocks.map(s => s.tk) : [] }));
 }
 step('Rebuilding the local dashboard file', ['quant/build-radar.mjs']);
 console.log('\nDone. Open the server dashboard from any device.');

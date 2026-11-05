@@ -135,6 +135,28 @@ input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visi
 .tvnote { font-size: 13px; color: var(--muted); }
 
 /* Allocation */
+/* Day-trade plan */
+.dt { display: grid; gap: 16px; }
+.dt-verdict { padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid var(--dtc); background: var(--surface); display: grid; gap: 6px; }
+.dt-verdict b.big { font: 700 22px var(--f-display); color: var(--dtc); }
+.timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.timeline div { background: var(--surface); padding: 10px 12px; display: grid; gap: 2px; font-size: 14px; }
+.timeline b { font: 600 15px var(--f-mono); color: var(--accent); }
+.picks3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pickcard { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--accent); padding: 14px; display: grid; gap: 8px; }
+.pickcard h3 { font-size: 22px; display: flex; justify-content: space-between; align-items: baseline; }
+.pickcard h3 small { font: 500 13px var(--f-body); color: var(--muted); }
+.step { display: grid; grid-template-columns: 74px 1fr auto; gap: 4px 10px; font-size: 15px; align-items: baseline; }
+.step .when { font: 600 12px var(--f-body); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.step .px { font-family: var(--f-mono); text-align: right; }
+.step .buy { color: var(--accent); } .step .sell { color: var(--good); } .step .cut { color: var(--bad); }
+.gapgrid { display: grid; gap: 6px; }
+.gaprow { display: grid; grid-template-columns: minmax(0, 1.6fr) 90px 70px 1fr; gap: 10px; align-items: center; font-size: 14px; }
+.gaprow .track { height: 10px; background: var(--sunk); position: relative; }
+.gaprow .track span { position: absolute; top: 0; height: 10px; }
+.gaprow.best { font-weight: 600; }
+.mcheck { background: var(--surface); border: 1px solid var(--line); padding: 14px; display: grid; gap: 12px; }
+.go { font: 700 18px var(--f-display); } .go.yes { color: var(--good); } .go.no { color: var(--bad); } .go.maybe { color: var(--warn); }
 .alloc { background: var(--surface); border: 1px solid var(--line); padding: 16px; display: grid; gap: 14px; }
 /* Integrated assessment */
 .vchip { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 4px; background: var(--vc-soft); color: var(--vc); white-space: nowrap; }
@@ -200,6 +222,11 @@ details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
   <p id="lede"></p>
   <p class="disclaimer">This page ranks stocks using price data only. It is not investment advice and I'm not a licensed advisor. "Shortlist" means a stock passed every data check below, not that it will go up. Past behaviour does not predict future prices.</p>
 </header>
+
+<section aria-labelledby="dt-h" id="daytrade">
+  <h2 id="dt-h">Day-trade plan: buy in the morning, sell in the afternoon</h2>
+  <div class="dt" id="dt"></div>
+</section>
 
 <section aria-labelledby="wx-h">
   <h2 id="wx-h">Market weather</h2>
@@ -631,6 +658,81 @@ function assessBlock(s) {
   document.querySelectorAll('.btnrow .btn').forEach(b => b.addEventListener('click', () => { const names = picks; if (!names.length) return; const tot = +$('labTotal').value || 0, w = weightsFor(b.dataset.o, names);
     names.forEach((t, i) => { amounts[t] = Math.round(tot * w[i] / 100000) * 100000; }); draw(); }));
   draw();
+})();
+
+// Day-trade plan section.
+(function () {
+  const T = D.daytrade, el = $('dt');
+  if (!T) { el.innerHTML = '<p class="muted">No day-trade plan yet. Run <span class="mono">npm run daytrade</span> (or <span class="mono">npm run morning</span> after 09:05 WIB).</p>'; return; }
+  const V = T.validation, S3 = V.strategy.top3, AL = V.strategy.all_liquid, GR = V.strategy.top3_before_costs, cost = T.rules.round_trip_cost;
+  const SEL = V.strategy.selective, SD = V.strategy.selective_trade_days;
+  const edge = V.edge_after_costs || V.edge_selective, beatsAll = S3.avg_per_day > AL.avg_per_day;
+  const col = edge ? 'good' : SEL && SEL.avg_per_day > -0.0002 ? 'warn' : 'bad';
+  const verdict = V.edge_after_costs ? 'The morning picks made money after fees in testing.'
+    : V.edge_selective ? 'Trading only on the model’s "go" days made money after fees in testing.'
+    : 'No reliable profit after fees in testing.';
+  const isFri = new Date().getDay() === 5;
+  const sched = isFri ? T.session.friday : T.session.mon_thu;
+  const best = new Set(T.morning_rule.best);
+  const gmax = Math.max(...T.morning_rule.table.map(g => Math.abs(g.avg_net)), 0.001);
+  const byTk = Object.fromEntries(T.plan.map(p => [p.tk, p]));
+  const picks = T.picks.map(t => byTk[t]);
+  const atrOf = p => p.atr ?? p.ref_price * Math.abs(p.stop_pct) / T.rules.stop_atr;
+  const volOf = p => p.vol_daily ?? atrOf(p) / p.ref_price / 1.4;
+  const fee = () => ({ b: (+($('feeBuy')?.value) || T.rules.fees.buy * 100) / 100, s: (+($('feeSell')?.value) || T.rules.fees.sell * 100) / 100 });
+  const levels = (p, open) => { const a = atrOf(p), f = fee(), tick = x => x < 200 ? 1 : x < 500 ? 2 : x < 2000 ? 5 : x < 5000 ? 10 : 25;
+    const dn = x => Math.floor(x / tick(x)) * tick(x), up = x => Math.ceil(x / tick(x)) * tick(x);
+    return { stop: dn(open - T.rules.stop_atr * a), target: up(open + T.rules.target_atr * a), bep: up(open * (1 + f.b) / (1 - f.s)) }; };
+  const card = p => { const L = levels(p, p.ref_price);
+    return `<div class="pickcard"><h3>${p.tk}<small>#${p.rank} · score ${p.score}</small></h3>
+      <div class="step"><span class="when">09:05+</span><span class="buy">${T.live ? 'Opened at' : 'Buy near the open, around'}</span><span class="px">${rp(p.ref_price)}</span>
+        <span class="when">Stop</span><span class="cut">Sell at once if it falls to</span><span class="px cut">${rp(L.stop)}</span>
+        <span class="when">Target</span><span class="sell">Take profit at</span><span class="px sell">${rp(L.target)}</span>
+        <span class="when">Fees</span><span>Break-even after fees</span><span class="px">${rp(L.bep)}</span>
+        <span class="when">15:30–49</span><span>Otherwise sell before the close</span><span class="px">–</span></div>
+      <p class="small muted">Chance the trade ends above break-even (model): ${pct(p.p_win, 0)} · risk per lot ${rp(p.lot_risk)}${p.verdict ? ` · integrated risk ${p.verdict}` : ''}</p></div>`; };
+
+  el.innerHTML = `
+    <div class="dt-verdict" style="--dtc:var(--${col})"><b class="big">${verdict}</b>
+      <p class="small">Tested on ${V.test_days.toLocaleString()} trading days the models had never seen (${V.from} to ${V.to}), buying the top ${T.rules.top_k} picks each morning and selling at the stop, the target or the close:
+      <strong>${sgn(S3.avg_per_day, 2)} per day after fees</strong> (${sgn(GR.avg_per_day, 2)} before fees), winning ${pct(S3.win_rate, 0)} of days, t = ${S3.t_stat}.
+      Buying every liquid stock the same way: ${sgn(AL.avg_per_day, 2)} per day. Fees take about ${pct(cost, 1)} of every round trip.</p>
+      ${SEL ? `<p class="small">Trading <strong>only when the model expects a profit after fees</strong> (and holding cash otherwise): traded on ${pct(SD.share_of_days, 0)} of days, ${SD.trades.toLocaleString()} trades, ${sgn(SD.avg_per_trade, 2)} per trade after fees, ${pct(SD.win_rate_per_trade, 0)} of trades won; averaged over all days ${sgn(SEL.avg_per_day, 3)} per day, t = ${SEL.t_stat}.</p>` : ''}
+      <p class="small">The ranking itself works: on unseen days it ordered stocks correctly with a correlation of ${V.ranking_ic} (t = ${V.ranking_ic_t}), and the top picks beat the bottom picks every way it was tested. The problem is size: the edge before fees is smaller than the fees.</p>
+      <p class="small muted">${edge ? 'Even so, keep sizes small: a test edge can fade.' : 'Use this plan only for practice with small amounts, or not at all. The stops, targets and morning rule still help limit losses if you do trade.'} Worst run of losses in testing: ${pct(S3.max_drawdown, 0)}.</p></div>
+    <p class="small muted">Plan for <strong>${T.live ? T.plan_for + ' (opening prices already known)' : 'the next trading day'}</strong>, based on prices to ${T.based_on}. Not investment advice.</p>
+    <div><h3 style="margin-bottom:8px">Your day, step by step${isFri ? ' (Friday hours)' : ''}</h3>
+      <div class="timeline">${sched.map(([t, x]) => `<div><b>${t}</b><span>${esc(x)}</span></div>`).join('')}</div></div>
+    <div><h3 style="margin-bottom:8px">Today's picks</h3><div class="picks3">${picks.length ? picks.map(card).join('') : '<p class="muted">No stock passes the checks today. Sitting out is a valid plan.</p>'}</div></div>
+    <div class="mcheck"><h3>Morning check: is it still a buy at today's open?</h3>
+      <div class="calc"><label for="mcTk">Stock<select id="mcTk">${T.plan.map(p => `<option value="${p.tk}">${p.tk}${p.eligible ? '' : ' (not eligible)'}</option>`).join('')}</select></label>
+        <label for="mcOpen">Opening price (Rp)<input id="mcOpen" type="number" min="1" step="1"></label>
+        <label for="mcMoney">Money for this trade (Rp)<input id="mcMoney" type="number" min="0" step="1000000" value="10000000"></label>
+        <label for="mcRisk">Max loss (% of money)<input id="mcRisk" type="number" min="0.1" max="5" step="0.1" value="1"></label></div>
+      <div id="mcOut"></div></div>
+    <div><h3 style="margin-bottom:8px">Morning rule: how the opening gap mattered</h3>
+      <div class="gapgrid">${T.morning_rule.table.map(g => `<div class="gaprow ${best.has(g.label) ? 'best' : ''}"><span>${esc(g.label)}${best.has(g.label) ? ' ✓' : ''}</span><span class="num r ${g.avg_net > 0 ? 'pos' : 'neg'}" style="color:var(--${g.avg_net > 0 ? 'good' : 'bad'})">${sgn(g.avg_net, 2)}/trade</span><span class="num r">${pct(g.win_rate, 0)} won</span>
+        <span class="track"><span style="${g.avg_net >= 0 ? 'left:50%' : 'right:50%'};width:${(Math.abs(g.avg_net) / gmax * 50).toFixed(1)}%;background:var(--${g.avg_net >= 0 ? 'good' : 'bad'})"></span></span></div>`).join('')}</div>
+      <p class="small muted">After fees, all liquid stocks, tested days only. "Daily swing" is each stock's own typical daily move. Stops were hit on ${pct(V.exits.stop, 0)} of trades, targets on ${pct(V.exits.target, 0)}, the rest sold at the close.</p></div>
+    <details class="adv"><summary>All ${T.plan.length} stocks for tomorrow's plan</summary><div><div class="tbl"><table><thead><tr><th>Stock</th><th>Rank</th><th>Ref. price</th><th>Stop</th><th>Target</th><th>BEP</th><th>Win chance</th><th>Eligible</th></tr></thead><tbody>
+      ${T.plan.map(p => `<tr><td><b>${p.tk}</b></td><td>${p.rank}</td><td>${rp(p.ref_price)}</td><td class="neg">${rp(p.stop)}</td><td class="pos">${rp(p.target)}</td><td>${rp(p.bep)}</td><td>${pct(p.p_win, 0)}</td><td style="font-family:var(--f-body)">${p.eligible ? 'Yes' : esc(p.skip.join('; '))}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">Ranking skill on unseen days: IC ${V.ranking_ic} (t = ${V.ranking_ic_t}); on training days ${V.train_ic_avg}. Models: ridge regression, logistic regression and a dropout deep network, weighted by validation skill each block.</p></div></details>`;
+
+  function check() {
+    const p = byTk[$('mcTk').value], open = +$('mcOpen').value, money = +$('mcMoney').value, rk = +$('mcRisk').value / 100;
+    if (!(open > 0)) { $('mcOut').innerHTML = `<p class="small muted">Type today's opening price for ${p.tk} (yesterday's reference was ${rp(p.ref_price)}).</p>`; return; }
+    const gapS = Math.log(open / p.ref_price) / volOf(p), g = T.morning_rule.table.find(x => gapS >= x.lo && gapS < x.hi), L = levels(p, open);
+    const okGap = best.has(g.label), okStock = p.eligible, riskLot = (open - L.stop) * 100, lots = Math.max(0, Math.min(Math.floor(money * rk / riskLot), Math.floor(money / (open * 100))));
+    const cls = okGap && okStock ? 'yes' : okStock ? 'maybe' : 'no';
+    const word = { yes: 'Go: the open passes the morning rule', maybe: 'Caution: this kind of open did worse in testing', no: 'Skip: ' + p.skip.join('; ') }[cls];
+    $('mcOut').innerHTML = `<p class="go ${cls}">${word}</p>
+      <p class="small">Opening gap ${sgn(open / p.ref_price - 1, 2)} = ${gapS.toFixed(2)} daily swings → "${esc(g.label)}" (${sgn(g.avg_net, 2)} per trade after fees, ${pct(g.win_rate, 0)} won).</p>
+      <div class="outgrid"><div><span>${cls === 'no' ? 'If you trade anyway' : 'Buy'}</span><b>${lots} lots @ ${rp(open)}</b></div><div><span>Stop (sell if hit)</span><b>${rp(L.stop)}</b></div><div><span>Target (take profit)</span><b>${rp(L.target)}</b></div>
+        <div><span>Break-even after fees</span><b>${rp(L.bep)}</b></div><div><span>Loss if stopped</span><b>−${rp(lots * riskLot)}</b></div><div><span>Gain at target (before fees)</span><b>+${rp(lots * (L.target - open) * 100)}</b></div></div>
+      <p class="small muted">If neither level is hit, sell between 15:30 and 15:49, or in the closing auction (15:50–16:00).${!T.live && p.skip.some(x => /expected/.test(x)) ? ' The "expected result" check assumed a flat open; after 09:05 run <span class="mono">npm run morning</span> to recalculate it with the real opening prices.' : ''}</p>`;
+  }
+  ['mcTk', 'mcOpen', 'mcMoney', 'mcRisk'].forEach(id => $(id).addEventListener('input', check));
+  $('mcTk').value = picks[0]?.tk ?? T.plan[0].tk; check();
 })();
 
 render();

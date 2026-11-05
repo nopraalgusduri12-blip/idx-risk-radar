@@ -7,8 +7,10 @@ const dir = new URL('.', import.meta.url);
 const model = JSON.parse(readFileSync(new URL('data/model.json', dir), 'utf8'));
 const riskPath = new URL('data/risk.json', dir);
 const risk = existsSync(riskPath) ? JSON.parse(readFileSync(riskPath, 'utf8')) : null;
+const dtPath = new URL('data/daytrade.json', dir);
+const daytrade = existsSync(dtPath) ? JSON.parse(readFileSync(dtPath, 'utf8')) : null;
 // Levels are drawn in TradingView for every stock by draw.mjs, unless a list is given.
 const drawn = process.argv[2] ? process.argv[2].split(',').filter(Boolean) : model.stocks.map(s => s.tk);
-const { html, data } = renderDashboard(model, risk, { drawn });
+const { html, data } = renderDashboard(model, risk, { drawn, daytrade });
 writeFileSync(new URL('idx-risk-radar.html', dir), html);
 console.log('idx-risk-radar.html', html.length, 'bytes; shortlist:', data.shortlist.join(' ') || '(none)');

@@ -10,7 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Where daily.json, model.json and risk.json live. Point it at a persistent disk on a server.
 export const DATA_DIR = resolve(process.env.RADAR_DATA_DIR || join(ROOT, 'quant/data'));
-export const PATHS = { daily: join(DATA_DIR, 'daily.json'), model: join(DATA_DIR, 'model.json'), risk: join(DATA_DIR, 'risk.json'), meta: join(DATA_DIR, 'meta.json') };
+export const PATHS = { daily: join(DATA_DIR, 'daily.json'), model: join(DATA_DIR, 'model.json'), risk: join(DATA_DIR, 'risk.json'), daytrade: join(DATA_DIR, 'daytrade.json'), meta: join(DATA_DIR, 'meta.json') };
 
 // JSON files cached by modification time, so a refresh is picked up without a restart.
 const cache = new Map();
@@ -23,6 +23,16 @@ function readJson(path) {
 export function loadModel() { const m = readJson(PATHS.model); if (!m) throw new Error('No model output yet. Upload data from the collector or run `npm run radar`.'); return m; }
 export function loadRisk() { const r = readJson(PATHS.risk); if (!r) throw new Error('No integrated risk output yet. Run the pipeline (`npm run risk`).'); return r; }
 export const loadRiskOrNull = () => readJson(PATHS.risk);
+export const loadDaytradeOrNull = () => readJson(PATHS.daytrade);
+// Day-trade plan: morning picks, levels, the opening-gap rule and the after-cost backtest.
+export function daytrade({ all = false } = {}) {
+  const d = readJson(PATHS.daytrade); if (!d) throw new Error('No day-trade plan yet. Run `npm run daytrade` (or the morning collector).');
+  const v = d.validation;
+  return { plan_for: d.plan_for, based_on: d.based_on, live_open_known: d.live, picks: d.picks, rules: d.rules, morning_rule: d.morning_rule, session: d.session,
+    edge_after_costs: v.edge_after_costs, backtest: { from: v.from, to: v.to, test_days: v.test_days, top3: v.strategy.top3, top3_before_costs: v.strategy.top3_before_costs, all_liquid: v.strategy.all_liquid, ranking_ic: v.ranking_ic, ranking_ic_t: v.ranking_ic_t, exits: v.exits },
+    plan: all ? d.plan : d.plan.filter(p => p.eligible).slice(0, 10),
+    disclaimer: 'Statistical plan from past prices, not investment advice. Day trading after fees is hard; check edge_after_costs.' };
+}
 export const loadMeta = () => readJson(PATHS.meta) || {};
 export const normTicker = t => String(t).toUpperCase().trim().replace(/^IDX[_A-Z]*:/, '');
 
@@ -64,6 +74,8 @@ export async function runModels(log = () => {}) {
   await run('quant/model.mjs', [PATHS.daily, '--out', PATHS.model], 40 * 60 * 1000);
   log('running the integrated risk engine');
   await run('quant/risk.mjs', [PATHS.daily, PATHS.model, '--out', PATHS.risk], 60 * 60 * 1000);
+  log('building the day-trade plan');
+  await run('quant/daytrade.mjs', [PATHS.daily, PATHS.risk, '--out', PATHS.daytrade], 60 * 60 * 1000);
   log('done');
 }
 
@@ -141,6 +153,9 @@ export function buildMcp({ extra = [] } = {}) {
     safe(({ holdings }) => portfolioRisk(loadRisk(), holdings)));
   server.registerTool('radar_validation', { title: 'How well the models performed on unseen data',
     description: 'Walk-forward validation of every forecast: return ranking IC, risk forecasts AUC/Brier/calibration, VaR Kupiec test, deep network train vs test AUC.', inputSchema: {} }, safe(validation));
+  server.registerTool('radar_daytrade', { title: 'Today\x27s day-trade plan (buy morning, sell afternoon)',
+    description: 'Morning picks with entry rule, intraday stop, target, break-even after fees and win chance; the opening-gap rule; the trading-session schedule; and the walk-forward backtest after costs (is there an edge?).',
+    inputSchema: { all: z.boolean().default(false).describe('true = every stock, false = the top 10 eligible') } }, safe(daytrade));
   for (const t of extra) server.registerTool(t.name, t.config, safe(t.handler));
   return server;
 }

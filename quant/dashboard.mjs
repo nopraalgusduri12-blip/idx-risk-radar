@@ -23,10 +23,18 @@ export function mergeRisk(model, risk) {
 }
 
 // `drawn`: tickers whose levels are drawn in TradingView (only known on the machine that drew them).
-export function renderDashboard(model, risk, { drawn = [] } = {}) {
+export function renderDashboard(model, risk, { drawn = [], daytrade = null } = {}) {
   const D = mergeRisk(model, risk);
   D.drawn = drawn;
+  D.daytrade = daytrade;
   // Escape "</" so embedded data can never close the <script> element early.
   const json = JSON.stringify(D).replace(/<\//g, '<\\/');
-  return { html: readFileSync(TEMPLATE, 'utf8').replace('__DATA__', () => json), data: D };
+  const body = readFileSync(TEMPLATE, 'utf8').replace('__DATA__', () => json);
+  // A complete document: opens directly in a browser, and is what the web server and artifact hosting expect.
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style></head><body>
+${body}
+</body></html>`;
+  return { html, data: D };
 }

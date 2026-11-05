@@ -77,17 +77,15 @@ async function startJob(source) {
 let dashCache = { key: '', html: '' };
 function dashboard() {
   const mt = p => existsSync(p) ? statSync(p).mtimeMs : 0;
-  const key = [C.PATHS.model, C.PATHS.risk, C.PATHS.meta].map(mt).join('|');
+  const key = [C.PATHS.model, C.PATHS.risk, C.PATHS.daytrade, C.PATHS.meta].map(mt).join('|');
   if (dashCache.key === key) return dashCache.html;
   const meta = C.loadMeta();
-  let { html } = renderDashboard(C.loadModel(), C.loadRiskOrNull(), { drawn: meta.drawn || [] });
+  let { html } = renderDashboard(C.loadModel(), C.loadRiskOrNull(), { drawn: meta.drawn || [], daytrade: C.loadDaytradeOrNull() });
   const updated = meta.models_updated_at || meta.published_at || meta.uploaded_at;
   const bar = `<div style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:10px">
     <span>Server copy${updated ? ` · updated ${new Date(updated).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta' })} WIB` : ''}${meta.source ? ` · from ${meta.source}` : ''}</span>
     <span><a href="/api/status" style="color:var(--accent)">Status</a> · <a href="/logout" style="color:var(--accent)">Log out</a></span></div>`;
   html = html.replace('<div class="wrap">', () => `<div class="wrap">${bar}`);
-  html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style></head><body>${html}</body></html>`;
   dashCache = { key, html }; return html;
 }
 const page = (title, inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>
@@ -150,6 +148,7 @@ async function route(req, res) {
     }
     if (!body?.model?.stocks || !body?.risk?.stocks) return json(res, 400, { error: 'Expected { model, risk } from model.json and risk.json' });
     writeAtomic(C.PATHS.model, JSON.stringify(body.model)); writeAtomic(C.PATHS.risk, JSON.stringify(body.risk));
+    if (body.daytrade?.plan) writeAtomic(C.PATHS.daytrade, JSON.stringify(body.daytrade));
     updateMeta({ published_at: new Date().toISOString(), models_updated_at: new Date().toISOString(), source: body.source || 'collector', drawn: body.drawn || [] });
     return json(res, 200, { ok: true, as_of: body.model.as_of });
   }
@@ -176,6 +175,7 @@ async function route(req, res) {
   }
   if (p === '/api/portfolio' && m === 'POST') { const b = parseJson(await readBody(req, 100_000)); return json(res, 200, C.portfolioRisk(C.loadRisk(), b?.holdings || [])); }
   if (p === '/api/validation') return json(res, 200, C.validation());
+  if (p === '/api/daytrade') return json(res, 200, C.daytrade({ all: url.searchParams.get('all') === '1' }));
   if (p === '/api/model.json') return send(res, 200, readFileSync(C.PATHS.model));
   if (p === '/api/risk.json') return send(res, 200, readFileSync(C.PATHS.risk));
   return json(res, 404, { error: 'not found' });
