@@ -12,10 +12,11 @@
     "fetch": "node quant/fetch.mjs",
     "model": "node quant/model.mjs quant/data/daily.json --out quant/data/model.json",
     "draw": "node quant/draw.mjs all",
+    "risk": "node quant/risk.mjs quant/data/daily.json quant/data/model.json --out quant/data/risk.json",
     "dashboard": "node quant/build-radar.mjs",
-    "radar": "npm run fetch && npm run model && npm run dashboard",
+    "radar": "npm run fetch && npm run model && npm run risk && npm run dashboard",
     "launch": "node node_modules/tradingview-mcp/src/cli/index.js launch",
-    "test": "node --test test/model.test.js"
+    "test": "node --test test/model.test.js test/lib.test.js"
   },
   "engines": { "node": ">=18" },
   "dependencies": {

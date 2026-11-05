@@ -17,6 +17,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MODEL = join(ROOT, 'quant/data/model.json');
+const RISK = join(ROOT, 'quant/data/risk.json');
 const DASH = join(ROOT, 'quant/idx-risk-radar.html');
 const HTTP = process.argv.includes('--http');
 const ALLOW_CONTROL = !HTTP || process.env.RADAR_ALLOW_CONTROL === '1';
@@ -26,6 +27,30 @@ const fail = msg => ({ isError: true, content: [{ type: 'text', text: msg }] });
 function loadModel() {
   if (!existsSync(MODEL)) throw new Error('No model output yet. Run the radar_refresh tool (or `npm run radar`) first.');
   return JSON.parse(readFileSync(MODEL, 'utf8'));
+}
+function loadRisk() {
+  if (!existsSync(RISK)) throw new Error('No integrated risk output yet. Run radar_refresh (or `npm run risk`) first.');
+  return JSON.parse(readFileSync(RISK, 'utf8'));
+}
+// Portfolio risk for holdings [{ticker, amount}] from the shrunk covariance and per-stock stress results.
+function portfolioRisk(R, holdings) {
+  const P = R.portfolio, idx = Object.fromEntries(P.tickers.map((t, k) => [t, k])), by = Object.fromEntries(R.stocks.map(s => [s.tk, s]));
+  const h = holdings.map(x => ({ tk: x.ticker.toUpperCase().replace(/^IDX[_A-Z]*:/, ''), amt: x.amount })).filter(x => x.amt > 0);
+  const missing = h.filter(x => !(x.tk in idx)).map(x => x.tk); if (missing.length) throw new Error(`Not in the universe: ${missing.join(', ')}`);
+  const V = h.reduce((a, x) => a + x.amt, 0), cov = (a, b) => P.cov_daily[idx[a]][idx[b]];
+  const sw = h.map(a => h.reduce((s0, b) => s0 + cov(a.tk, b.tk) * b.amt, 0)), varP = h.reduce((s0, x, i) => s0 + x.amt * sw[i], 0), sdP = Math.sqrt(varP);
+  const alone = h.reduce((s0, x) => s0 + x.amt * Math.sqrt(cov(x.tk, x.tk)), 0);
+  const stress = f => h.reduce((s0, x) => s0 + x.amt * f(by[x.tk]), 0);
+  return {
+    as_of: R.as_of, total: V, vol_ann: sdP / V * Math.sqrt(252), var95_1d: 1.645 * sdP, var99_1d: 2.326 * sdP, var95_20d: 1.645 * sdP * Math.sqrt(20), es95_1d: 2.063 * sdP,
+    diversification_benefit: 1 - sdP / alone, effective_n: 1 / h.reduce((s0, x) => s0 + (x.amt / V) ** 2, 0),
+    risk_contribution: Object.fromEntries(h.map((x, i) => [x.tk, x.amt * sw[i] / varP])),
+    stress_rp: { ihsg_minus10_bad: stress(s => s.stress.ihsg10.bad), ihsg_minus20_bad: stress(s => s.stress.ihsg20.bad),
+      worst_month_replay: stress(s => s.stress.hist ?? s.stress.ihsg20.expected), sum_es95_20d: stress(s => s.sim.es95_20d) },
+    weighted_p_drop10: stress(s => s.integrated.p_crash10) / V,
+    verdicts: Object.fromEntries(h.map(x => [x.tk, by[x.tk].assessment.verdict])), market_regime_high_vol: R.regime.high,
+    note: 'Parametric normal VaR on a Ledoit-Wolf shrunk covariance; stress uses downside beta and each stock\'s own tail. Not investment advice.',
+  };
 }
 // Run one pipeline step as a child process from the repo root; resolves with its output.
 function run(script, args = [], timeoutMs = 15 * 60 * 1000) {
@@ -46,7 +71,7 @@ const plain = s => ({ tk: s.tk, sector: s.sector, label: s.label, score: s.score
 function buildServer() {
   const server = new McpServer({ name: 'idx-risk-radar', version: '0.1.0' }, {
     instructions: 'Data-only risk screen for 48 liquid IDX stocks built from TradingView daily bars. Not investment advice. ' +
-      'Start with radar_market (market conditions and how far to trust the model ranking), then radar_table or radar_stock. ' +
+      'Start with radar_market (market conditions and how far to trust the model ranking), then radar_table, radar_stock, or radar_assess for the integrated risk verdict and mitigation actions; radar_portfolio for a set of holdings; radar_validation for out-of-sample evidence. ' +
       'Always tell the user that the return ranking has low predictive reliability when radar_market says reliable=false. ' +
       'Risk forecasts (stop-hit chance, volatility, bad-case dip) are separate; check risk_reliable before leaning on them.',
   });
@@ -90,6 +115,33 @@ function buildServer() {
     return ok({ as_of: m.as_of, ...rest, features: raw });
   });
 
+  server.registerTool('radar_assess', {
+    title: 'Integrated risk assessment for one stock',
+    description: 'Integrated risk verdict (Low to Severe), score, mitigation actions, Monte Carlo 20-day outcome range, GARCH volatility, EVT tail risk, stress tests in rupiah per lot, liquidity, and what drives the risk.',
+    inputSchema: { ticker: z.string().describe('IDX ticker, e.g. BBRI') },
+  }, async ({ ticker }) => {
+    const R = loadRisk(), s = R.stocks.find(x => x.tk === ticker.toUpperCase().replace(/^IDX[_A-Z]*:/, ''));
+    if (!s) return fail(`${ticker} has no risk assessment.`);
+    return ok({ as_of: R.as_of, regime: { p_high_vol: R.regime.p_high_vol, high: R.regime.high }, ...s });
+  });
+
+  server.registerTool('radar_portfolio', {
+    title: 'Portfolio risk',
+    description: 'Risk of a set of holdings: yearly volatility, 1-day and 20-day VaR/ES in rupiah, diversification benefit, each stock\'s share of total risk, stress-test losses (IHSG -10%/-20%, worst-month replay), and integrated verdicts.',
+    inputSchema: { holdings: z.array(z.object({ ticker: z.string(), amount: z.number().positive().describe('Rupiah amount') })).min(1) },
+  }, async ({ holdings }) => {
+    try { return ok(portfolioRisk(loadRisk(), holdings)); } catch (e) { return fail(e.message); }
+  });
+
+  server.registerTool('radar_validation', {
+    title: 'How well the models performed on unseen data',
+    description: 'Walk-forward validation of every forecast: return ranking IC, risk forecasts AUC/Brier/calibration, VaR Kupiec test, deep network train vs test AUC, and which predictor was chosen.',
+    inputSchema: {},
+  }, async () => {
+    const m = loadModel(); let rv = null; try { rv = loadRisk().validation; } catch { /* risk engine not run */ }
+    return ok({ ml_models: m.validation, reliable_return_edge: m.reliable, risk_reliable: m.risk_reliable, integrated_engine: rv });
+  });
+
   if (ALLOW_CONTROL) {
     server.registerTool('radar_refresh', {
       title: 'Refresh data and models',
@@ -99,6 +151,7 @@ function buildServer() {
       try {
         const f = await run('quant/fetch.mjs');
         await run('quant/model.mjs', ['quant/data/daily.json', '--out', 'quant/data/model.json']);
+        await run('quant/risk.mjs', ['quant/data/daily.json', 'quant/data/model.json', '--out', 'quant/data/risk.json'], 40 * 60 * 1000);
         await run('quant/build-radar.mjs');
         const m = loadModel();
         return ok({ fetched: f.split('\n').slice(-1)[0], as_of: m.as_of, shortlist: m.shortlist, reliable: m.reliable, dashboard: DASH });

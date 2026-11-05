@@ -6,6 +6,7 @@ Data-only risk screening for Indonesian stocks (IDX), built on live daily data f
 - Forecasts **risk for the next 20 days** (chance of a 10%+ drop, volatility, stop-hit chance, worst dip) and ranks expected returns.
 - Every forecast is learned with **nested walk-forward validation**: ridge/logistic, gradient-boosted trees and a neural net learn corrections on top of a simple baseline, with early stopping, regularisation and thinned training rows. Whichever predictor wins on unseen data is used, and the train-vs-test gap is reported.
 - Grades risk A–E (volatility, CVaR, drawdown, beta, liquidity, tail fatness, plus the forecasts that passed testing) and labels each stock **Shortlist / Watch / Avoid** by fixed rules.
+- **Integrated risk engine** (quant + ML): GARCH volatility, Monte Carlo filtered historical simulation, EVT tail risk, an HMM market regime, Corwin-Schultz liquidity, stress tests and a dropout deep network, stacked into one validated risk verdict per stock with concrete mitigation actions, plus a portfolio risk lab (VaR/ES, risk contributions, stress tests, min-variance and risk-parity splits).
 - Mitigation per stock: position-size multiplier from forecast volatility, and a wider-stop warning when a bad-case dip would reach the planned stop.
 - Gives every stock an entry, **break-even after fees (BEP)**, stop loss and two take-profit levels, rounded to valid IDX ticks, plus a lot calculator.
 - Draws those levels as labelled lines on **each stock's own TradingView chart**, so they are there whenever you switch to that stock.
@@ -36,7 +37,7 @@ npm install
 
 ```bash
 npm run launch      # start TradingView with the debug port (keep this terminal open on Windows)
-npm run radar       # fetch data -> train/validate models -> build dashboard
+npm run radar       # fetch data -> train/validate models -> integrated risk engine -> build dashboard
 npm run draw        # draw levels on every stock's chart
 ```
 
@@ -74,6 +75,9 @@ Restart Claude fully. Tools:
 | `radar_market` | Market caution level, model reliability, shortlist, suggested split |
 | `radar_table` | Entry / BEP / stop / take-profit table, filter by label, sector, risk |
 | `radar_stock` | Everything about one ticker |
+| `radar_assess` | Integrated verdict, mitigation actions, simulated 20-day range, GARCH/EVT readings, stress losses per lot |
+| `radar_portfolio` | Risk of your holdings: VaR/ES in rupiah, diversification, risk contributions, stress tests |
+| `radar_validation` | Out-of-sample evidence for every model |
 | `radar_refresh` | Re-fetch data from TradingView, retrain, rebuild the dashboard |
 | `radar_draw` | Draw levels on TradingView charts (`all` or a ticker list) |
 

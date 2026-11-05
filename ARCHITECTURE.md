@@ -113,3 +113,49 @@ For each stock: switch the chart and delete horizontal lines whose label starts 
 ## 10. MCP server (`src/server.js`)
 
 `@modelcontextprotocol/sdk`, five tools. stdio by default. `--http` serves stateless Streamable HTTP on `127.0.0.1:$PORT` at `/mcp/$RADAR_TOKEN`. Control tools are added only when `RADAR_ALLOW_CONTROL=1`. Long steps run as child processes from the repo root.
+
+## 11. Integrated risk engine (`quant/risk.mjs`, shared numerics in `quant/lib.mjs`)
+
+Combines quantitative-finance models with machine learning and compiles them into an assessment and mitigation plan per stock, plus a portfolio risk dataset. Every component is refitted on data before each test block: 9 walk-forward blocks of 120 days, Sep 2022 to Oct 2026, evaluated every 5th day.
+
+| Component | Method | Output |
+|---|---|---|
+| Volatility | GARCH(1,1), Gaussian QMLE with variance targeting, Nelder-Mead | current and long-run vol, 1/5/10/20-day term structure, shock half-life |
+| Path simulation | Filtered historical simulation: GARCH variance path × bootstrapped standardised (close, low, high) shocks from the stock's own history, 4,000 paths | P(stop touched), P(10% drop), P(take profit 1 before stop), 20-day return quantiles, ES 95%, noise-aware stop (35% touch level), realistic target (median 20-day high) |
+| Tail risk | GPD on standardised losses above the 90th percentile (probability-weighted moments), scaled by GARCH σ (McNeil-Frey conditional EVT); Cornish-Fisher for comparison | 1-day VaR / ES 99%, tail shape ξ |
+| Market regime | 2-state Gaussian HMM on IHSG returns (Baum-Welch, scaled forward-backward) | P(high-volatility regime), regime vols, expected duration |
+| Liquidity | Corwin-Schultz high-low spread estimator, 20-day traded value | spread %, size limits |
+| Market link | beta, downside beta (IHSG down days), residual volatility | stress losses |
+| Volatility baseline | logistic regression on log EWMA vol, ATR %, IHSG vol, IHSG drawdown | P(10% drop) |
+| Deep network | 86-32-16-8-1 ReLU, dropout 0.2, L2, Adam, early stopping; input = last 20 days of close/low/high moves scaled by the stock's EWMA vol, IHSG moves scaled by IHSG vol, plus 6 state variables | P(10% drop) |
+| Integration | stacked logistic regression on the component outputs, trained only on earlier blocks | integrated P(10% drop), P(stop), driver attribution |
+
+### Validation on unseen data (current run)
+
+| Check | Result |
+|---|---|
+| 10%-drop AUC: Monte Carlo / baseline / deep net / **integrated** | 0.616 / 0.622 / 0.603 / **0.622** |
+| Integrated Brier skill vs base rate | +6% (Monte Carlo alone has the lowest Brier, 0.2169) |
+| Deep network AUC, training vs unseen | 0.67 vs 0.57: it overfits, and the stacked model gives it a small weight |
+| Stop touched (1.5 ATR) | AUC 0.53: not predictable per stock; about 62% are touched within 20 days |
+| 20-day volatility forecast correlation, GARCH vs EWMA | 0.41 vs 0.53: EWMA tracks this period better |
+| Raw GARCH-EVT VaR 99% | breaks on 1.44% of days (Kupiec rejects); 11 of 48 stocks fail individually |
+| Backtest-corrected VaR (×1.085 fitted on the first half, checked on the second) | breaks on 1.16% (Kupiec p = 0.016): better, still slightly optimistic; the final factor is ×1.12 |
+
+### Assessment and mitigation (per stock)
+
+- **Score:** percentile of the integrated 10%-drop probability across the universe. **Verdict:** Low / Moderate / Elevated / High / Severe by fifths (a relative ranking).
+- **Size factor:** 1 / 0.8 / 0.6 / 0.4 / 0 by verdict, halved when the HMM puts IHSG in its high-volatility regime with ≥ 70% probability.
+- **Actions (rule-based on the simulated numbers):**
+  - Swap to the noise-aware stop with fewer lots when the planned stop's touch chance is above 50%.
+  - Take partial profit at the realistic target when take profit 1 is reached first in fewer than 30% of paths.
+  - Use limit orders when the spread is above 1%.
+  - Pair with lower-beta names when downside beta is above 1.2.
+  - Treat event dates with care when the tail shape ξ is above 0.25.
+  - Reassess triggers: volatility, support break, regime change.
+- **Stress tests per lot:** IHSG −10% / −20% (expected = downside beta × shock; bad = minus 1.645 × residual vol × √20), a replay of the worst 20-day IHSG window in the data, and simulated ES 95%.
+- **Labels:** the integrated verdict can only make a label more cautious. Severe → Avoid; High removes a stock from the Shortlist.
+
+### Portfolio lab
+
+Ledoit-Wolf shrinkage (towards scaled identity) of the 250-day daily covariance. The browser and the `radar_portfolio` tool compute portfolio volatility, parametric VaR/ES (1 and 20 days), each holding's share of risk, the diversification benefit, the effective number of stocks, stress losses, sector concentration, and equal-weight / minimum-variance / risk-parity splits.

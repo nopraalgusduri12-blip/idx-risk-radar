@@ -2,10 +2,12 @@
 // then restore the original symbol and timeframe. Safe to rerun: earlier radar lines on a symbol
 // are removed first, so each chart always shows the latest levels.
 // Usage: node quant/draw.mjs [all | TICKER,TICKER,...]   (defaults to all stocks in the model)
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { chart, drawing } from 'tradingview-mcp/core';
 
 const M = JSON.parse(readFileSync('quant/data/model.json', 'utf8'));
+// Integrated risk assessment (quant/risk.mjs), when it has been run.
+const RISK = existsSync('quant/data/risk.json') ? Object.fromEntries(JSON.parse(readFileSync('quant/data/risk.json', 'utf8')).stocks.map(s => [s.tk, s])) : {};
 const RAW = JSON.parse(readFileSync('quant/data/daily.json', 'utf8'));
 const arg = process.argv[2] || 'all';
 const list = arg === 'all' ? M.stocks.map(s => s.tk) : arg.split(',').filter(Boolean);
@@ -38,11 +40,16 @@ for (const tk of list) {
     await chart.setSymbol({ symbol: 'IDX:' + tk });
     await sleep(1200);
     const removed = await clearOurs();
-    const p = s.plan, lines = [
-      [p.entry, `RADAR ${tk} ${LABEL[s.label]} · entry ${p.entry} · score ${s.score} · risk ${s.risk_grade}`, C.entry, 2, 0, 'right'],
+    const p = s.plan, k = RISK[tk], a = k?.assessment;
+    const lines = [
+      [p.entry, `RADAR ${tk} ${LABEL[s.label]} · entry ${p.entry} · score ${s.score} · risk ${s.risk_grade}${a ? ` · ${a.verdict} risk, ${Math.round(a.size_factor * 100)}% size` : ''}`, C.entry, 2, 0, 'right'],
       [p.bep, `RADAR BEP ${p.bep} (after fees)`, C.bep, 1, 2, 'right'],
-      [p.stop, `RADAR stop loss ${p.stop} (-${(p.risk_pct * 100).toFixed(1)}% · Rp${p.lot_risk.toLocaleString('id-ID')}/lot${s.forecast ? ` · ${Math.round(s.forecast.p_stop * 100)}% hit chance 20d` : ''})`, C.stop, 2, 0, 'right'],
-      ...(s.forecast?.noise_reaches_stop ? [[s.forecast.wide_stop, `RADAR wider stop ${s.forecast.wide_stop} (bad-case dip reaches the normal stop)`, C.stop, 1, 2, 'right']] : []),
+      [p.stop, `RADAR stop loss ${p.stop} (-${(p.risk_pct * 100).toFixed(1)}% · Rp${p.lot_risk.toLocaleString('id-ID')}/lot · ${Math.round((k ? k.sim.p_stop : s.forecast?.p_stop ?? 0) * 100)}% touch chance 20d)`, C.stop, 2, 0, 'right'],
+      ...(k ? [
+        ...(a.noise_stop < p.stop ? [[a.noise_stop, `RADAR noise-aware stop ${a.noise_stop} (~35% touch chance · Rp${Math.round(a.noise_stop_lot_risk).toLocaleString('id-ID')}/lot)`, C.stop, 1, 2, 'right']] : []),
+        [a.realistic_target, `RADAR realistic 20d target ${a.realistic_target} (median simulated high)`, C.tp, 1, 1, 'right'],
+        [Math.round(s.price * (1 + k.sim.ret20_q[0])), `RADAR 20d bad case ${Math.round(s.price * (1 + k.sim.ret20_q[0]))} (5% of simulations end lower)`, C.lvl, 1, 2, 'right'],
+      ] : s.forecast?.noise_reaches_stop ? [[s.forecast.wide_stop, `RADAR wider stop ${s.forecast.wide_stop} (bad-case dip reaches the normal stop)`, C.stop, 1, 2, 'right']] : []),
       [p.tp1, `RADAR take profit 1 ${p.tp1} (1.5R)`, C.tp, 2, 0, 'right'],
       [p.tp2, `RADAR take profit 2 ${p.tp2} (2.5R)`, C.tp, 1, 2, 'right'],
       ...s.levels.res.map(l => [l.price, `RADAR resistance ${l.price} (${l.touches}×)`, C.lvl, 1, 1, 'left']),

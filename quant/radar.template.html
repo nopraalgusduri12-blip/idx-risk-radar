@@ -104,7 +104,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visi
   .row .stripe { grid-area: s; } .row .c-tk { grid-area: tk; } .row .c-lbl { grid-area: lbl; justify-self: end; }
   .row .c-px { grid-area: px; } .row .c-grade { grid-area: grade; justify-self: end; } .row .c-sc { grid-area: sc; } .row .c-trend { grid-area: trend; justify-self: end; }
   .row .c-ps { grid-area: ps; text-align: left; }
-  .row .c-ps::before { content: "Chance of a 10% drop, 20 days: "; color: var(--muted); font-family: var(--f-body); }
+  .row .c-ps::before { content: "Integrated risk: "; color: var(--muted); font-family: var(--f-body); }
   .row .c-spark { display: none; }
 }
 
@@ -136,6 +136,38 @@ input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visi
 
 /* Allocation */
 .alloc { background: var(--surface); border: 1px solid var(--line); padding: 16px; display: grid; gap: 14px; }
+/* Integrated assessment */
+.vchip { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 4px; background: var(--vc-soft); color: var(--vc); white-space: nowrap; }
+.v-Low { --vc: var(--g-a); --vc-soft: var(--good-soft); } .v-Moderate { --vc: var(--g-b); --vc-soft: var(--good-soft); }
+.v-Elevated { --vc: var(--g-c); --vc-soft: var(--warn-soft); } .v-High { --vc: var(--g-d); --vc-soft: var(--warn-soft); } .v-Severe { --vc: var(--g-e); --vc-soft: var(--bad-soft); }
+.assess { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--vc); padding: 16px; display: grid; gap: 16px; }
+.assess-head { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: baseline; }
+.assess-head .big { font: 700 30px var(--f-display); color: var(--vc); line-height: 1; }
+.acts { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+.acts li::marker { color: var(--vc); }
+.fan { position: relative; height: 34px; background: var(--sunk); }
+.fan .band { position: absolute; top: 9px; height: 16px; background: var(--accent); opacity: .25; }
+.fan .core { position: absolute; top: 9px; height: 16px; background: var(--accent); opacity: .55; }
+.fan .mid { position: absolute; top: 4px; width: 2px; height: 26px; background: var(--ink); }
+.fan .zero { position: absolute; top: 0; width: 1px; height: 34px; background: var(--muted); }
+.fanlbl { display: flex; justify-content: space-between; font: 12px var(--f-mono); color: var(--muted); }
+.drv { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr 52px; gap: 8px; align-items: center; font-size: 13px; }
+.drv .track { height: 8px; background: var(--sunk); position: relative; }
+.drv .bar { position: absolute; top: 0; height: 8px; }
+.drv .bar.up { left: 50%; background: var(--bad); } .drv .bar.dn { right: 50%; background: var(--good); }
+.drv .track::after { content: ""; position: absolute; left: 50%; top: -3px; width: 1px; height: 14px; background: var(--muted); }
+/* Portfolio lab */
+.lab { background: var(--surface); border: 1px solid var(--line); padding: 16px; display: grid; gap: 16px; }
+.picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick { font: 600 13px var(--f-body); padding: 5px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--bg); color: var(--muted); cursor: pointer; }
+.pick[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.holdings { display: grid; gap: 6px; }
+.hold { display: grid; grid-template-columns: 64px minmax(0, 1fr) 150px 60px; gap: 10px; align-items: center; font-size: 14px; }
+.hold input { width: 100%; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 600 14px var(--f-body); padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 560px) { .hold { grid-template-columns: 56px 1fr 52px; } .hold .ctr { display: none; } }
 .bars { display: grid; gap: 8px; }
 .bar { display: grid; grid-template-columns: 70px 1fr 64px; gap: 10px; align-items: center; font-size: 15px; }
 .bar .track { height: 14px; background: var(--sunk); position: relative; }
@@ -207,7 +239,7 @@ details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
     <label for="feeSell">Sell fee incl. 0.1% tax (%)<input id="feeSell" type="number" min="0" max="2" step="0.01" value="0.25"></label>
   </div>
   <div class="tbl"><table id="params"><thead><tr>
-    <th>Stock</th><th>Label</th><th>Entry</th><th>BEP</th><th>Stop loss</th><th>Loss to stop</th><th>Take profit 1</th><th>Gain TP1</th><th>Take profit 2</th><th>Gain TP2</th><th>Risk per lot</th><th>TP1 before stop (history)</th><th>10% drop risk (forecast)</th><th>Size vs normal</th><th>Wider stop if noisy</th>
+    <th>Stock</th><th>Label</th><th>Entry</th><th>BEP</th><th>Stop loss</th><th>Loss to stop</th><th>Take profit 1</th><th>Gain TP1</th><th>Take profit 2</th><th>Gain TP2</th><th>Risk per lot</th><th>TP1 before stop (history)</th><th>Integrated risk</th><th>10% drop chance</th><th>Stop touch chance (sim.)</th><th>Size vs normal</th><th>Noise-aware stop</th><th>Realistic 20-day target</th>
   </tr></thead><tbody></tbody></table></div>
   <p class="muted small">Prices are rounded to valid IDX ticks: stop down, BEP up, targets to the nearest tick. Gains are before fees. "TP1 before stop (history)" is how often Take profit 1 came before the stop in the past, against 40% needed to break even. The last three columns come from the risk forecast: the chance of touching the stop in the next 20 days, how much to scale position size, and a wider stop when normal swings could reach the planned one.</p>
 </section>
@@ -215,6 +247,11 @@ details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
 <section aria-labelledby="al-h">
   <h2 id="al-h">Splitting money across the shortlist</h2>
   <div class="alloc" id="alloc"></div>
+</section>
+
+<section aria-labelledby="lab-h">
+  <h2 id="lab-h">Portfolio risk lab</h2>
+  <div class="lab" id="lab"></div>
 </section>
 
 <section aria-labelledby="gl-h">
@@ -275,6 +312,7 @@ $('lede').textContent = `Every stock below was measured the same way, by the num
       <div class="fact ${M.vol20 > M.vol_all ? 'bad' : ''}"><b>${(M.vol20 / M.vol_all).toFixed(1)}×</b><span>daily swings vs normal for this period</span></div>
       <div class="fact"><b>${M.above50 ? 'Above' : 'Below'}</b><span>IHSG vs its 50-day average</span></div>
       <div class="fact"><b>${M.above100 ? 'Above' : 'Below'}</b><span>IHSG vs its 100-day average</span></div>
+      ${D.riskmeta ? `<div class="fact ${D.riskmeta.regime.high ? 'bad' : ''}"><b>${pct(D.riskmeta.regime.p_high_vol, 0)}</b><span>chance IHSG is in its high-volatility regime (hidden Markov model; that regime averages ${pct(D.riskmeta.regime.vol_high_ann, 0)} yearly swings and lasts about ${Math.round(D.riskmeta.regime.expected_days_high)} days)</span></div>` : ''}
     </div>`;
 })();
 
@@ -300,6 +338,8 @@ const dropLvl = s => s.forecast.p_crash10 >= c90 ? 'high' : s.forecast.p_crash10
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">${gauge(retLvl, rel ? 'Good' : 'Low', 'return ranking')}
       <div style="display:grid;gap:6px;min-width:0;flex:1 1 300px"><p><strong>Can it predict which stocks will go up the most? ${rel ? 'It showed a dependable edge.' : 'Not reliably.'}</strong>
       Over ${e.n_independent} separate 20-day periods it had never seen, the top-ranked fifth beat the bottom fifth by ${sgn(e.spread20d)} on average (rank correlation ${e.ic.toFixed(3)}, t = ${e.ic_t_nonoverlap}). ${rel ? 'That passed the significance test.' : 'That is too small or too inconsistent to rely on, so the data score is only a tie-breaker.'}</p></div></div>
+    ${D.riskmeta ? (() => { const v = D.riskmeta.validation, c = v.crash.components, k = v.var99_1d;
+      return `<p class="small"><strong>Integrated risk engine:</strong> combining Monte Carlo simulation, GARCH volatility, extreme-value tails, the market regime, liquidity, a volatility baseline and a deep network, the stacked model ranked 10%-drop risk correctly ${pct(c.integrated.auc, 0)} of the time on unseen data (Monte Carlo alone ${pct(c.fhs.auc, 0)}, deep network alone ${pct(c.deep.auc, 0)}). Its 1-day 99% loss limit was broken on ${pct(k.actual_rate, 2)} of days against 1% expected.</p>`; })() : ''}
     <p class="small muted">Learning check (training data vs unseen data): returns ${e.train_skill.toFixed(3)} vs ${e.test_skill.toFixed(3)} rank correlation, 10% drops ${(cr.train_skill + 0.5).toFixed(2)} vs ${(cr.test_skill + 0.5).toFixed(2)} AUC. A large gap means memorising; the return models still show one, which is why their ranking gets little trust. Trained on ${D.bars.toLocaleString()} days (${D.from} to ${D.as_of}), tested in ${D.training.folds} walk-forward blocks.</p></div>`;
 })();
 
@@ -327,7 +367,7 @@ function render() {
   const key = { score: s => -s.score, risk: s => s.risk_pct, liq: s => -s.liq_bn, chg20: s => -s.chg20d, tk: s => s.tk, pstop: s => s.forecast.p_crash10 };
   L.sort((a, b) => { const ka = key[so](a), kb = key[so](b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
   $('count').textContent = `${L.length} of ${D.stocks.length} stocks`;
-  const head = `<div class="head" aria-hidden="true"><span></span><span>Stock</span><span class="r">Price</span><span class="r">20 days</span><span>Data score</span><span>Risk</span><span>Trend</span><span class="r">10% drop risk</span><span>Label</span></div>`;
+  const head = `<div class="head" aria-hidden="true"><span></span><span>Stock</span><span class="r">Price</span><span class="r">20 days</span><span>Data score</span><span>Risk</span><span>Trend</span><span>Integrated risk</span><span>Label</span></div>`;
   $('board').innerHTML = head + (L.length ? L.map(s => {
     const [lt, lc, ls] = LBL[s.label];
     return `<div class="row" role="listitem" tabindex="0" aria-expanded="${open === s.tk}" data-tk="${s.tk}" style="--lbl:var(${lc});--lbl-soft:var(${ls})">
@@ -338,7 +378,7 @@ function render() {
       <span class="c-sc scorebar"><span class="track"><span class="fill" style="width:${s.score}%"></span></span><small>${s.score} / 100</small></span>
       <span class="c-grade"><span class="grade" style="--gc:var(${GRADE[s.risk_grade]})" title="Risk grade ${s.risk_grade}">${s.risk_grade}</span></span>
       <span class="c-trend trend ${s.trend}">${TREND[s.trend]}</span>
-      <span class="c-ps r ps ${dropLvl(s)}" title="Forecast chance of falling 10% or more below today within 20 trading days">${pct(s.forecast.p_crash10, 0)}</span>
+      <span class="c-ps">${s.risk ? `<span class="vchip v-${s.risk.assessment.verdict}" title="Integrated risk score ${s.risk.assessment.score}/100">${s.risk.assessment.verdict}</span>` : `<span class="ps ${dropLvl(s)}">${pct(s.forecast.p_crash10, 0)}</span>`}</span>
       <span class="c-lbl"><span class="chip">${lt}</span></span>
     </div>${open === s.tk ? detail(s) : ''}`;
   }).join('') : `<div class="empty">No stocks match these filters. Try "All" or a higher risk grade.</div>`);
@@ -361,8 +401,9 @@ function renderParams(L) {
       <td>${rp(p.entry)}</td><td>${rp(bep)}</td><td class="neg">${rp(p.stop)}</td><td class="neg">${sgn(p.stop / p.entry - 1)}</td>
       <td class="pos">${rp(p.tp1)}</td><td class="pos">${sgn(p.tp1 / p.entry - 1)}</td><td class="pos">${rp(p.tp2)}</td><td class="pos">${sgn(p.tp2 / p.entry - 1)}</td>
       <td>${rp(p.lot_risk)}</td><td class="${hit >= s.bracket.breakeven ? 'pos' : 'neg'}">${pct(hit, 0)}</td>
-      <td class="ps ${dropLvl(s)}">${pct(s.forecast.p_crash10, 0)}</td><td>${s.forecast.size_mult.toFixed(2)}×</td><td>${s.forecast.noise_reaches_stop ? rp(s.forecast.wide_stop) : '–'}</td></tr>`;
-  }).join('') || '<tr><td colspan="15"style="text-align:center;font-family:var(--f-body)">No stocks match the board filters.</td></tr>';
+      ${s.risk ? `<td style="font-family:var(--f-body)"><span class="vchip v-${s.risk.assessment.verdict}">${s.risk.assessment.verdict}</span></td><td>${pct(s.risk.integrated.p_crash10, 0)}</td><td>${pct(s.risk.sim.p_stop, 0)}</td>
+      <td>${s.risk.assessment.size_factor.toFixed(2)}×</td><td>${s.risk.assessment.noise_stop < p.stop ? rp(s.risk.assessment.noise_stop) : '–'}</td><td>${rp(s.risk.assessment.realistic_target)}</td>` : '<td colspan="6">–</td>'}</tr>`;
+  }).join('') || '<tr><td colspan="18" style="text-align:center;font-family:var(--f-body)">No stocks match the board filters.</td></tr>';
 }
 ['feeBuy', 'feeSell'].forEach(id => $(id).addEventListener('input', () => { renderParams(lastList); if (open) render(); }));
 
@@ -375,6 +416,7 @@ function detail(s) {
   const lv = s.levels;
   return `<div class="detail">
     <p><strong>${sum}</strong></p>
+    ${s.risk ? assessBlock(s) : ''}
     <div class="dgrid">
       <div class="panel"><h3>Why this label</h3><ul class="why">${s.why.map(w => `<li>${esc(w[0].toUpperCase() + w.slice(1))}</li>`).join('')}</ul>
         <h3>What the models think</h3><div class="models">${Object.entries(s.model_ranks).map(([k, v]) => `<div class="mrow ${D.weights[k] > 0 ? '' : 'off'}"><span>${MODEL_NAMES[k]}${D.weights[k] > 0 ? '' : ' (not used)'}</span><span class="track"><span class="dot" style="left:${v}%"></span></span><span class="num">${v}</span></div>`).join('')}</div>
@@ -469,12 +511,126 @@ function wireCalc(s) {
       <div class="tbl"><table><thead><tr><th>Feature</th><th>Tree gain share</th><th>Ridge coefficient</th></tr></thead><tbody>${imp}</tbody></table></div></div>
     <div style="display:grid;gap:8px;min-width:0"><h3>What drives the risk forecast</h3>
       ${V.crash.chosen === "baseline" ? `<p class="small">The model in use is a regularised logistic regression on four inputs: the stock&rsquo;s own log EWMA volatility, its ATR as a share of price, IHSG volatility and how far IHSG sits below its 1-year high. Boosted trees and the neural net were tested on the same unseen data and did not beat it, so they get no say.</p>` : `<div class="tbl"><table><thead><tr><th>Feature</th><th>Tree gain share</th></tr></thead><tbody>${rimp}</tbody></table></div>`}</div></div>
+  ${D.riskmeta ? (() => { const v = D.riskmeta.validation, c = v.crash.components, sc = v.stop.components;
+    const row = (n, x) => `<tr><td>${n}</td><td>${x.auc.toFixed(3)}</td><td>${x.brier != null ? x.brier.toFixed(4) : '–'}</td></tr>`;
+    return `<div style="display:grid;gap:8px"><h3>Integrated risk engine: walk-forward validation (${v.period.folds} blocks, ${v.period.from} to ${v.period.to})</h3>
+    <div class="dgrid">
+      <div class="tbl"><table><thead><tr><th>10%+ drop within 20 days</th><th>AUC</th><th>Brier</th></tr></thead><tbody>
+        ${row('Monte Carlo (GARCH + filtered historical simulation)', c.fhs)}${row('Volatility baseline (logistic)', c.baseline)}${row('Deep network (sequence of 20 days)', c.deep)}
+        ${row('EVT expected shortfall (ranking only)', c.es99_rank)}${row('Market regime (ranking only)', c.regime_rank)}${row('Integrated stacked model', c.integrated)}
+        <tr><td>Constant base rate</td><td>0.500</td><td>${v.crash.brier_const.toFixed(4)}</td></tr></tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+        <tr><td>Stop touched: Monte Carlo AUC / integrated AUC</td><td>${sc.fhs.auc.toFixed(3)} / ${sc.integrated.auc.toFixed(3)}</td></tr>
+        <tr><td>Raw GARCH-EVT VaR 99% breaks (expected 1%)</td><td>${pct(v.var99_1d.actual_rate, 2)} of ${v.var99_1d.n.toLocaleString()} days, Kupiec p = ${v.var99_1d.p_value}</td></tr>
+        <tr><td>Backtest correction factor for VaR (checked on later blocks)</td><td>×${v.var99_1d.scale_factor} · later blocks break ${pct(v.var99_1d.adjusted_check.actual_rate, 2)}, Kupiec p = ${v.var99_1d.adjusted_check.p_value}</td></tr>
+        <tr><td>Stocks whose VaR fails Kupiec at 5%</td><td>${v.var99_1d.stocks_rejected_5pct} of ${v.var99_1d.stocks_tested}</td></tr>
+        <tr><td>20-day volatility forecast: GARCH / EWMA correlation</td><td>${v.volatility.garch.corr} / ${v.volatility.ewma.corr}</td></tr>
+        <tr><td>Deep network AUC: training / unseen</td><td>${v.deep_network.train_auc_avg} / ${v.deep_network.test_auc}</td></tr>
+        <tr><td>Integrated model Brier skill vs base rate</td><td>${sgn(v.crash.brier_skill_integrated)}</td></tr></tbody></table></div></div>
+    <p class="small muted">Deep network: ${esc(v.deep_network.architecture)}. Stacked model inputs and weights (standardised): ${Object.entries(D.riskmeta.meta_weights).map(([k, x]) => `${esc(k)} ${x > 0 ? '+' : ''}${x}`).join(' · ')}. Every component and the stacked model were fitted only on data before each test block.</p></div>`; })() : ''}
   <div style="display:grid;gap:6px"><h3>Limits</h3><ul class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
     <li>${D.bars.toLocaleString()} trading days (${D.from} to ${D.as_of}) including different market phases, but the most recent stretch is a steep fall. Models trained on past regimes can fail in a new one.</li>
     <li>Prices only. No earnings, valuation, dividends, news or foreign flows.</li>
     <li>The universe is 48 large, liquid names chosen in advance, so smaller stocks are not covered.</li>
     <li>Costs (broker fees, tax and spread), auto-rejection limits and gaps are not modelled. A gap can skip past a stop.</li>
     <li>Rerun the pipeline regularly: <span class="mono">node quant/fetch.mjs</span> then <span class="mono">node quant/model.mjs</span>.</li></ul></div>`;
+})();
+
+const MAX_DRV = Math.max(0.01, ...D.stocks.filter(s => s.risk).flatMap(s => s.risk.drivers.map(d => Math.abs(d.effect))));
+function assessBlock(s) {
+  const k = s.risk, a = k.assessment, q = k.sim.ret20_q, lo = Math.min(q[0], -0.2), hi = Math.max(q[4], 0.2), X = v => ((v - lo) / (hi - lo) * 100).toFixed(1) + '%';
+  const lot = s.price * 100, st = k.stress;
+  const sc = [['IHSG falls 10% (expected)', st.ihsg10.expected], ['IHSG falls 10% (bad case)', st.ihsg10.bad], ['IHSG falls 20% (expected)', st.ihsg20.expected], ['IHSG falls 20% (bad case)', st.ihsg20.bad],
+    ...(st.hist != null ? [[`Replay of worst IHSG month (${D.riskmeta.worst_window.from} to ${D.riskmeta.worst_window.to}, IHSG ${sgn(D.riskmeta.worst_window.ihsg)})`, st.hist]] : []),
+    ['Average of the worst 5% of simulated 20-day outcomes', k.sim.es95_20d]];
+  return `<div class="assess v-${a.verdict}">
+    <div class="assess-head"><span class="eyebrow">Integrated risk assessment</span><span class="big">${a.verdict}</span><span class="vchip v-${a.verdict}">score ${a.score} / 100</span><span class="muted small">${a.action} · chance of a 10%+ drop in 20 days: ${pct(k.integrated.p_crash10, 0)}</span></div>
+    <p class="small muted" style="margin-top:-8px">The verdict ranks ${s.tk} against the other ${D.stocks.length - 1} stocks today (Low = calmest fifth). ${D.riskmeta.regime.high ? "In the current high-volatility market even a Low verdict carries real risk, which is why sizes are halved." : ""}</p>
+    <div class="dgrid">
+      <div style="display:grid;gap:8px;min-width:0"><h3>What to do</h3><ol class="acts">${a.actions.map(x => `<li>${esc(x.text)}</li>`).join('')}</ol></div>
+      <div style="display:grid;gap:12px;min-width:0">
+        <div style="display:grid;gap:6px"><h3>Simulated 20-day outcome (${(4000).toLocaleString()} paths)</h3>
+          <div class="fan" role="img" aria-label="5th to 95th percentile of 20-day returns from ${pct(q[0])} to ${pct(q[4])}">
+            <span class="band" style="left:${X(q[0])};width:calc(${X(q[4])} - ${X(q[0])})"></span><span class="core" style="left:${X(q[1])};width:calc(${X(q[3])} - ${X(q[1])})"></span>
+            <span class="zero" style="left:${X(0)}"></span><span class="mid" style="left:${X(q[2])}"></span></div>
+          <div class="fanlbl"><span>5%: ${sgn(q[0])}</span><span>median ${sgn(q[2])}</span><span>95%: ${sgn(q[4])}</span></div>
+          <p class="small muted">Light band: 90% of simulated outcomes; dark band: the middle half. Built from GARCH volatility and this stock's own past daily moves.</p></div>
+        <div style="display:grid;gap:6px"><h3>What pushes the risk up or down</h3>
+          ${k.drivers.map(d => `<div class="drv"><span>${esc(d.name)}</span><span class="track"><span class="bar ${d.effect > 0 ? 'up' : 'dn'}" style="width:${(Math.abs(d.effect) / MAX_DRV * 50).toFixed(1)}%"></span></span><span class="num r">${d.effect > 0 ? '+' : ''}${d.effect.toFixed(2)}</span></div>`).join('')}
+          <p class="small muted">Red raises risk vs the average stock, green lowers it (stacked-model log-odds).</p></div>
+      </div>
+    </div>
+    <div class="dgrid">
+      <div style="display:grid;gap:6px;min-width:0"><h3>Stress tests, per lot (Rp${Math.round(lot).toLocaleString('id-ID')})</h3>
+        <dl class="kv">${sc.map(([n, v]) => `<dt>${esc(n)}</dt><dd class="${v < 0 ? 'neg' : ''}">${sgn(v)} · ${v < 0 ? '−' : '+'}${rp(Math.abs(v) * lot)}</dd>`).join('')}</dl></div>
+      <div style="display:grid;gap:6px;min-width:0"><h3>Quant model readings</h3>
+        <dl class="kv">
+          <dt>Volatility now → long run (GARCH)</dt><dd>${pct(k.garch.vol_now_ann, 0)} → ${pct(k.garch.vol_longrun_ann, 0)}</dd>
+          <dt>Volatility forecast 1 / 5 / 20 days</dt><dd>${k.garch.term_ann.filter((_, j) => j !== 2).map(v => pct(v, 0)).join(' / ')}</dd>
+          <dt>Half-life of a volatility shock</dt><dd>${k.garch.half_life_days} days</dd>
+          <dt>1-day loss limit 99% (EVT / Cornish-Fisher)</dt><dd>−${pct(k.tail.evt_var99_1d)} / −${pct(k.tail.cf_var99_1d)}</dd>
+          <dt>Average loss beyond it (EVT ES 99%)</dt><dd>−${pct(k.tail.evt_es99_1d)}</dd>
+          <dt>Tail heaviness (EVT shape ξ)</dt><dd>${k.tail.xi}</dd>
+          <dt>Beta / downside beta to IHSG</dt><dd>${k.market.beta} / ${k.market.down_beta}</dd>
+          <dt>Estimated bid-ask spread</dt><dd>${(k.liquidity.spread_cs * 100).toFixed(2)}%</dd>
+          <dt>Monte Carlo / baseline / deep net 10%-drop</dt><dd>${pct(k.components.fhs_crash, 0)} / ${pct(k.components.baseline_crash, 0)} / ${pct(k.components.deep_crash, 0)}</dd>
+        </dl></div>
+    </div></div>`;
+}
+
+// Portfolio risk lab: parametric risk from the Ledoit-Wolf covariance, plus stress tests and the integrated forecasts.
+(function () {
+  const RM = D.riskmeta; if (!RM) { $('lab').innerHTML = '<p class="muted">Run quant/risk.mjs to enable the portfolio lab.</p>'; return; }
+  const P = RM.portfolio, idx = Object.fromEntries(P.tickers.map((t, k) => [t, k])), byTk = Object.fromEntries(D.stocks.map(s => [s.tk, s]));
+  let picks = D.shortlist.filter(t => t in idx); if (picks.length < 2) picks = D.stocks.filter(s => s.risk && s.risk.assessment.verdict !== 'Severe').slice(0, 4).map(s => s.tk);
+  let amounts = Object.fromEntries(picks.map(t => [t, 25000000]));
+  $('lab').innerHTML = `<p class="small muted">Pick stocks and amounts to see the risk of the whole mix. It starts with today's shortlist and Rp25 million each as an example; change it to your own plan.</p>
+    <div class="picks" id="labPicks">${P.tickers.map(t => `<button type="button" class="pick" data-t="${t}" aria-pressed="${picks.includes(t)}">${t}</button>`).join('')}</div>
+    <div class="btnrow"><button type="button" class="btn" data-o="equal">Equal split</button><button type="button" class="btn" data-o="minvar">Lowest swings (min variance)</button><button type="button" class="btn" data-o="rp">Equal risk from each (risk parity)</button>
+      <label for="labTotal" style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)">Total Rp<input id="labTotal" type="number" min="0" step="1000000" value="100000000" style="width:150px"></label></div>
+    <div class="holdings" id="labHold"></div><div class="outgrid" id="labOut"></div><div id="labMore" class="dgrid"></div>`;
+  const cov = (a, b) => P.cov_daily[idx[a]][idx[b]];
+  function weightsFor(mode, names) {
+    const n = names.length; let w = names.map(() => 1 / n);
+    if (mode === 'minvar') for (let it = 0; it < 2000; it++) { const g = names.map(a => names.reduce((s0, b, j) => s0 + cov(a, b) * w[j], 0)); w = w.map((x, i) => Math.max(0, x - 0.2 * g[i] / cov(names[i], names[i]) * x)); const sm = w.reduce((a, b) => a + b, 0) || 1; w = w.map(x => x / sm); }
+    if (mode === 'rp') for (let it = 0; it < 500; it++) { const sw = names.map(a => names.reduce((s0, b, j) => s0 + cov(a, b) * w[j], 0)); const rc = w.map((x, i) => x * sw[i]), tgt = rc.reduce((a, b) => a + b, 0) / n; w = w.map((x, i) => x * Math.sqrt(tgt / (rc[i] || 1e-12))); const sm = w.reduce((a, b) => a + b, 0); w = w.map(x => x / sm); }
+    return w;
+  }
+  function draw() {
+    const names = picks.filter(t => amounts[t] > 0 || true);
+    $('labHold').innerHTML = names.map(t => `<div class="hold"><b>${t}</b><span class="ctr muted small" id="ctr-${t}"></span><input type="number" min="0" step="1000000" id="amt-${t}" value="${Math.round(amounts[t] || 0)}" aria-label="Amount in ${t} (Rp)"><span class="num r small" id="lots-${t}"></span></div>`).join('') || '<p class="muted">Pick at least one stock.</p>';
+    names.forEach(t => $('amt-' + t).addEventListener('input', e => { amounts[t] = +e.target.value || 0; calc(); }));
+    calc();
+  }
+  function calc() {
+    const names = picks.filter(t => amounts[t] > 0), V = names.reduce((a, t) => a + amounts[t], 0);
+    if (!names.length || !V) { $('labOut').innerHTML = ''; $('labMore').innerHTML = ''; return; }
+    const w = names.map(t => amounts[t]), sw = names.map(a => names.reduce((s0, b, j) => s0 + cov(a, b) * w[j], 0)), varP = w.reduce((s0, x, i) => s0 + x * sw[i], 0), sdP = Math.sqrt(varP);
+    const sdAlone = w.reduce((s0, x, i) => s0 + x * Math.sqrt(cov(names[i], names[i])), 0);
+    const contrib = w.map((x, i) => x * sw[i] / varP);
+    names.forEach((t, i) => { const s = byTk[t], lots = Math.floor(amounts[t] / (s.price * 100)); $('lots-' + t).textContent = lots + ' lots'; $('ctr-' + t).textContent = `${pct(contrib[i], 0)} of the mix's risk`; });
+    const stress = key => names.reduce((s0, t) => { const k = byTk[t].risk; const v = key === 'hist' ? (k.stress.hist ?? k.stress.ihsg20.expected) : key === 'es' ? k.sim.es95_20d : k.stress[key].bad; return s0 + amounts[t] * v; }, 0);
+    const hhi = w.reduce((s0, x) => s0 + (x / V) ** 2, 0), pCrash = names.reduce((s0, t) => s0 + amounts[t] * byTk[t].risk.integrated.p_crash10, 0) / V;
+    $('labOut').innerHTML = [['Total value', rp(V)], ['Yearly swing of the mix', pct(sdP / V * Math.sqrt(252), 0)], ['Bad day, 1 in 20 (VaR 95%)', '−' + rp(1.645 * sdP)], ['Bad day, 1 in 100 (VaR 99%)', '−' + rp(2.326 * sdP)],
+      ['Bad 20 days, 1 in 20', '−' + rp(1.645 * sdP * Math.sqrt(20))], ['Avg of worst 5% of days (ES 95%)', '−' + rp(2.063 * sdP)], ['Diversification benefit', pct(1 - sdP / sdAlone, 0) + ' less swing'], ['Effective number of stocks', (1 / hhi).toFixed(1)]]
+      .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+    const sc = [['IHSG falls 10%, bad case', stress('ihsg10')], ['IHSG falls 20%, bad case', stress('ihsg20')], [`Replay of worst IHSG month (${RM.worst_window.from})`, stress('hist')], ['Sum of each stock\'s worst-5% simulated 20 days', stress('es')]];
+    const sectors = {}; names.forEach(t => { sectors[byTk[t].sector] = (sectors[byTk[t].sector] || 0) + amounts[t] / V; });
+    const warn = [];
+    if (Object.values(sectors).some(v => v > 0.5)) warn.push('More than half the money is in one sector.');
+    if (1 / hhi < 3) warn.push('Fewer than 3 effective stocks: one bad stock dominates the result.');
+    if (names.some(t => byTk[t].risk.assessment.verdict === 'Severe')) warn.push('The mix holds a stock with Severe integrated risk.');
+    if (RM.regime.high) warn.push('The market is in its high-volatility regime: consider holding part of the total in cash.');
+    $('labMore').innerHTML = `<div style="display:grid;gap:6px;min-width:0"><h3>Stress tests for the mix</h3><dl class="kv">${sc.map(([n, v]) => `<dt>${esc(n)}</dt><dd class="neg">${v < 0 ? '−' : '+'}${rp(Math.abs(v))}</dd>`).join('')}</dl></div>
+      <div style="display:grid;gap:6px;min-width:0"><h3>Mix check</h3><dl class="kv"><dt>Weighted chance of a 10%+ drop per stock</dt><dd>${pct(pCrash, 0)}</dd>${Object.entries(sectors).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${pct(v, 0)}</dd>`).join('')}</dl>
+      ${warn.length ? `<ul class="small" style="margin:0;padding-left:18px;color:var(--warn)">${warn.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p class="small muted">No concentration warnings.</p>'}
+      <p class="small muted">VaR uses a normal curve on a Ledoit-Wolf shrunk covariance of the last ${P.window_days} days (shrinkage ${P.shrinkage}); stress tests use each stock's downside beta and its own tail.</p></div>`;
+  }
+  document.querySelectorAll('#labPicks .pick').forEach(b => b.addEventListener('click', () => { const t = b.dataset.t; const on = !picks.includes(t);
+    picks = on ? [...picks, t] : picks.filter(x => x !== t); if (on && !amounts[t]) amounts[t] = 10000000; b.setAttribute('aria-pressed', String(on)); draw(); }));
+  document.querySelectorAll('.btnrow .btn').forEach(b => b.addEventListener('click', () => { const names = picks; if (!names.length) return; const tot = +$('labTotal').value || 0, w = weightsFor(b.dataset.o, names);
+    names.forEach((t, i) => { amounts[t] = Math.round(tot * w[i] / 100000) * 100000; }); draw(); }));
+  draw();
 })();
 
 render();
