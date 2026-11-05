@@ -39,13 +39,16 @@ function run(script, args = [], timeoutMs = 15 * 60 * 1000) {
 }
 const plain = s => ({ tk: s.tk, sector: s.sector, label: s.label, score: s.score, risk_grade: s.risk_grade, trend: s.trend, price: s.price,
   entry: s.plan.entry, bep: s.plan.bep, stop_loss: s.plan.stop, take_profit_1: s.plan.tp1, take_profit_2: s.plan.tp2,
-  loss_to_stop_pct: -s.plan.risk_pct, risk_per_lot_rp: s.plan.lot_risk, tp1_before_stop_rate: s.bracket.p_tp_first, traded_value_bn: s.liq_bn });
+  loss_to_stop_pct: -s.plan.risk_pct, risk_per_lot_rp: s.plan.lot_risk, tp1_before_stop_rate: s.bracket.p_tp_first, traded_value_bn: s.liq_bn,
+  forecast_p_stop_20d: s.forecast?.p_stop, forecast_p_drop10_20d: s.forecast?.p_crash10, forecast_vol_ann: s.forecast?.vol20_ann,
+  forecast_bad_dip: s.forecast?.dip_bad, size_multiplier: s.forecast?.size_mult, wider_stop: s.forecast?.noise_reaches_stop ? s.forecast.wide_stop : null });
 
 function buildServer() {
   const server = new McpServer({ name: 'idx-risk-radar', version: '0.1.0' }, {
     instructions: 'Data-only risk screen for 48 liquid IDX stocks built from TradingView daily bars. Not investment advice. ' +
       'Start with radar_market (market conditions and how far to trust the model ranking), then radar_table or radar_stock. ' +
-      'Always tell the user that the ranking has low predictive reliability when radar_market says reliable=false.',
+      'Always tell the user that the return ranking has low predictive reliability when radar_market says reliable=false. ' +
+      'Risk forecasts (stop-hit chance, volatility, bad-case dip) are separate; check risk_reliable before leaning on them.',
   });
 
   server.registerTool('radar_market', {
@@ -54,7 +57,7 @@ function buildServer() {
     inputSchema: {},
   }, async () => {
     const m = loadModel();
-    return ok({ as_of: m.as_of, universe: m.universe, market: m.market, reliable: m.reliable, shortlist: m.shortlist, portfolio: m.portfolio,
+    return ok({ as_of: m.as_of, universe: m.universe, market: m.market, reliable: m.reliable, risk_reliable: m.risk_reliable, training: m.training, shortlist: m.shortlist, portfolio: m.portfolio,
       validation: m.validation, ensemble_weights: m.weights, fees: m.fees, disclaimer: 'Price-data screen only; not investment advice.' });
   });
 

@@ -2,15 +2,19 @@
 
 Data-only risk screening for Indonesian stocks (IDX), built on live daily data from **TradingView Desktop**.
 
-- Measures 48 liquid IDX stocks plus IHSG with 26 price-based features.
-- Ranks them with four machine-learning models and a factor rule, **validated walk-forward**. Each model's weight comes from its out-of-sample skill, so models with no skill get zero weight.
-- Grades risk A–E (volatility, CVaR, drawdown, beta, liquidity, tail fatness) and labels each stock **Shortlist / Watch / Avoid** by fixed rules.
+- Measures 48 liquid IDX stocks plus IHSG over ~6 years (1,500 daily bars) with 26 price features and 4 market-state features.
+- Forecasts **risk for the next 20 days** (chance of a 10%+ drop, volatility, stop-hit chance, worst dip) and ranks expected returns.
+- Every forecast is learned with **nested walk-forward validation**: ridge/logistic, gradient-boosted trees and a neural net learn corrections on top of a simple baseline, with early stopping, regularisation and thinned training rows. Whichever predictor wins on unseen data is used, and the train-vs-test gap is reported.
+- Grades risk A–E (volatility, CVaR, drawdown, beta, liquidity, tail fatness, plus the forecasts that passed testing) and labels each stock **Shortlist / Watch / Avoid** by fixed rules.
+- Mitigation per stock: position-size multiplier from forecast volatility, and a wider-stop warning when a bad-case dip would reach the planned stop.
 - Gives every stock an entry, **break-even after fees (BEP)**, stop loss and two take-profit levels, rounded to valid IDX ticks, plus a lot calculator.
 - Draws those levels as labelled lines on **each stock's own TradingView chart**, so they are there whenever you switch to that stock.
 - Builds a beginner-friendly HTML dashboard.
 - Ships as an **MCP server**, so Claude (Desktop, Code, or claude.ai as a custom connector) can query and refresh it.
 
-> **Not investment advice.** This is a statistical screen of past prices. In testing so far the models have **not** shown a reliable edge for predicting returns; the dashboard and the `radar_market` tool say so whenever that is the case.
+> **Not investment advice.** This is a statistical screen of past prices. On 6 years of data, the **risk** forecasts are useful (10%-drop ranking AUC ≈ 0.62, volatility R² ≈ 0.31 on unseen data) but **return** prediction shows no reliable edge (rank IC ≈ 0 over 49 independent periods). The dashboard and the `radar_market` tool report these numbers on every run.
+>
+> Current findings on this data: the simple baseline beat the boosted trees and the neural net out of sample for every risk target, so the system uses it. Complex models memorised (large train-vs-test gap) without generalising better.
 
 ## Requirements
 
@@ -106,7 +110,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Limits
 
-- About 300 daily bars per stock (what TradingView loads by default), all in one market regime.
+- About 1,500 daily bars per stock (set `RADAR_BARS` to change), loaded by asking the chart for more history. One full cycle (IHSG 5,158 → 9,135 → 4,920), but forecasts can still fail in a new regime.
 - Prices only: no earnings, valuation, dividends, news or foreign flows.
 - Costs, IDX auto-rejection limits and gaps are not modelled in the backtests. A gap can skip past a stop.
 - The universe is a fixed list of 48 liquid names in `quant/fetch.mjs`; edit it to change coverage.

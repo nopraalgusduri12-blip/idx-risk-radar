@@ -41,7 +41,8 @@ for (const tk of list) {
     const p = s.plan, lines = [
       [p.entry, `RADAR ${tk} ${LABEL[s.label]} · entry ${p.entry} · score ${s.score} · risk ${s.risk_grade}`, C.entry, 2, 0, 'right'],
       [p.bep, `RADAR BEP ${p.bep} (after fees)`, C.bep, 1, 2, 'right'],
-      [p.stop, `RADAR stop loss ${p.stop} (-${(p.risk_pct * 100).toFixed(1)}% · Rp${p.lot_risk.toLocaleString('id-ID')}/lot)`, C.stop, 2, 0, 'right'],
+      [p.stop, `RADAR stop loss ${p.stop} (-${(p.risk_pct * 100).toFixed(1)}% · Rp${p.lot_risk.toLocaleString('id-ID')}/lot${s.forecast ? ` · ${Math.round(s.forecast.p_stop * 100)}% hit chance 20d` : ''})`, C.stop, 2, 0, 'right'],
+      ...(s.forecast?.noise_reaches_stop ? [[s.forecast.wide_stop, `RADAR wider stop ${s.forecast.wide_stop} (bad-case dip reaches the normal stop)`, C.stop, 1, 2, 'right']] : []),
       [p.tp1, `RADAR take profit 1 ${p.tp1} (1.5R)`, C.tp, 2, 0, 'right'],
       [p.tp2, `RADAR take profit 2 ${p.tp2} (2.5R)`, C.tp, 1, 2, 'right'],
       ...s.levels.res.map(l => [l.price, `RADAR resistance ${l.price} (${l.touches}×)`, C.lvl, 1, 1, 'left']),

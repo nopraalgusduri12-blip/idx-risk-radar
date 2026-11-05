@@ -8,7 +8,7 @@ import { execFileSync } from 'child_process';
 
 function synth() {
   let s = 7; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647 - 0.5; };
-  const days = 180, t0 = 1735689600, bars = {};
+  const days = 650, t0 = 1735689600, bars = {};
   const series = (start, drift, vol) => { let c = start; return Array.from({ length: days }, (_, i) => {
     const o = c; c = Math.max(50, c * Math.exp(drift + vol * rnd())); const h = Math.max(o, c) * 1.01, l = Math.min(o, c) * 0.99;
     return { time: t0 + i * 86400, open: o, high: h, low: l, close: c, volume: 5e7 + 1e7 * rnd() }; }); };

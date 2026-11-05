@@ -76,7 +76,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visi
 
 /* Board */
 .board { border: 1px solid var(--line); background: var(--surface); }
-.head, .row { display: grid; grid-template-columns: 8px minmax(110px, 1.2fr) 92px 96px minmax(120px, 1fr) 70px 80px 104px; gap: 0 14px; align-items: center; padding: 10px 14px 10px 0; }
+.head, .row { display: grid; grid-template-columns: 8px minmax(100px, 1.1fr) 88px 92px minmax(110px, 1fr) 54px 84px 76px 104px; gap: 0 14px; align-items: center; padding: 10px 14px 10px 0; }
 .head { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: var(--sunk); border-bottom: 1px solid var(--line); }
 .row { border-bottom: 1px solid var(--line); cursor: pointer; }
 .row:hover { background: var(--sunk); }
@@ -94,12 +94,17 @@ input:focus-visible, select:focus-visible, button:focus-visible, .row:focus-visi
 .trend { font-size: 14px; font-weight: 600; }
 .trend.up { color: var(--good); } .trend.down { color: var(--bad); } .trend.mixed { color: var(--warn); }
 .spark { width: 100%; height: 34px; display: block; }
+.ps { font-family: var(--f-mono); font-size: 14px; font-weight: 500; }
+.ps.high { color: var(--bad); } .ps.medium { color: var(--warn); } .ps.low { color: var(--good); }
+.flag { font-size: 14px; padding: 8px 10px; background: var(--warn-soft); color: var(--ink); border-left: 3px solid var(--warn); }
 .empty { padding: 28px; text-align: center; color: var(--muted); }
 @media (max-width: 860px) {
   .head { display: none; }
-  .row { grid-template-columns: 6px 1fr auto; grid-template-areas: "s tk lbl" "s px grade" "s sc trend"; gap: 6px 12px; padding: 12px 14px 12px 0; }
+  .row { grid-template-columns: 6px 1fr auto; grid-template-areas: "s tk lbl" "s px grade" "s sc trend" "s ps ps"; gap: 6px 12px; padding: 12px 14px 12px 0; }
   .row .stripe { grid-area: s; } .row .c-tk { grid-area: tk; } .row .c-lbl { grid-area: lbl; justify-self: end; }
   .row .c-px { grid-area: px; } .row .c-grade { grid-area: grade; justify-self: end; } .row .c-sc { grid-area: sc; } .row .c-trend { grid-area: trend; justify-self: end; }
+  .row .c-ps { grid-area: ps; text-align: left; }
+  .row .c-ps::before { content: "Chance of a 10% drop, 20 days: "; color: var(--muted); font-family: var(--f-body); }
   .row .c-spark { display: none; }
 }
 
@@ -187,7 +192,7 @@ details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
     <label for="q">Search<input id="q" type="search" placeholder="e.g. BBCA" autocomplete="off"></label>
     <label for="sector">Sector<select id="sector"></select></label>
     <label for="maxRisk">Highest risk grade<select id="maxRisk"><option value="E">Any (A–E)</option><option value="D">Up to D</option><option value="C">Up to C</option><option value="B">Up to B</option><option value="A">A only</option></select></label>
-    <label for="sort">Sort by<select id="sort"><option value="score">Data score</option><option value="risk">Lowest risk</option><option value="liq">Most traded</option><option value="chg20">20-day change</option><option value="tk">Name</option></select></label>
+    <label for="sort">Sort by<select id="sort"><option value="score">Data score</option><option value="risk">Lowest risk</option><option value="liq">Most traded</option><option value="chg20">20-day change</option><option value="pstop">Lowest 10%-drop risk</option><option value="tk">Name</option></select></label>
     <span class="count" id="count" aria-live="polite"></span>
   </div>
   <div class="legend" id="legend"></div>
@@ -202,9 +207,9 @@ details.adv > div { padding: 0 16px 18px; display: grid; gap: 18px; }
     <label for="feeSell">Sell fee incl. 0.1% tax (%)<input id="feeSell" type="number" min="0" max="2" step="0.01" value="0.25"></label>
   </div>
   <div class="tbl"><table id="params"><thead><tr>
-    <th>Stock</th><th>Label</th><th>Entry</th><th>BEP</th><th>Stop loss</th><th>Loss to stop</th><th>Take profit 1</th><th>Gain TP1</th><th>Take profit 2</th><th>Gain TP2</th><th>Risk per lot</th><th>TP1 before stop (past yr)</th>
+    <th>Stock</th><th>Label</th><th>Entry</th><th>BEP</th><th>Stop loss</th><th>Loss to stop</th><th>Take profit 1</th><th>Gain TP1</th><th>Take profit 2</th><th>Gain TP2</th><th>Risk per lot</th><th>TP1 before stop (history)</th><th>10% drop risk (forecast)</th><th>Size vs normal</th><th>Wider stop if noisy</th>
   </tr></thead><tbody></tbody></table></div>
-  <p class="muted small">Prices are rounded to valid IDX ticks: stop down, BEP up, targets to the nearest tick. Gains are before fees. The last column is how often Take profit 1 was reached before the stop in the past year, against 40% needed to break even.</p>
+  <p class="muted small">Prices are rounded to valid IDX ticks: stop down, BEP up, targets to the nearest tick. Gains are before fees. "TP1 before stop (history)" is how often Take profit 1 came before the stop in the past, against 40% needed to break even. The last three columns come from the risk forecast: the chance of touching the stop in the next 20 days, how much to scale position size, and a wider stop when normal swings could reach the planned one.</p>
 </section>
 
 <section aria-labelledby="al-h">
@@ -247,7 +252,7 @@ const M = D.market, V = D.validation;
 const nShort = D.stocks.filter(s => s.label === 'shortlist').length;
 
 $('asof').textContent = `Daily data to ${D.as_of} · ${D.universe} liquid IDX stocks · from your TradingView chart`;
-$('lede').textContent = `Every stock below was measured the same way, by the numbers only: trend, swings, worst days, liquidity and four machine-learning models. ${nShort} of ${D.universe} pass every check today.`;
+$('lede').textContent = `Every stock below was measured the same way, by the numbers only: trend, swings, worst days, liquidity, and machine-learning models that had to beat simple baselines on unseen data before being trusted. ${nShort} of ${D.universe} pass every check today.`;
 
 // Market weather
 (function () {
@@ -273,15 +278,29 @@ $('lede').textContent = `Every stock below was measured the same way, by the num
     </div>`;
 })();
 
-// Honesty
+// Honesty: two separate questions, two gauges.
+const RR = D.risk_reliable || {};
+// Relative 10%-drop risk: top tenth = high, above median = medium.
+const crashSorted = D.stocks.map(s => s.forecast.p_crash10).sort((a, b) => a - b);
+const cMed = crashSorted[Math.floor(crashSorted.length / 2)], c90 = crashSorted[Math.floor(crashSorted.length * 0.9)];
+const dropLvl = s => s.forecast.p_crash10 >= c90 ? 'high' : s.forecast.p_crash10 > cMed ? 'medium' : 'low';
 (function () {
-  const e = V.ensemble, rel = D.reliable, ic = e.ic;
-  const lvl = rel ? 3 : ic > 0.05 ? 1 : 0, col = lvl >= 3 ? 'good' : lvl >= 1 ? 'warn' : 'bad';
-  const el = $('honest'); el.style.setProperty('--hz', `var(--${col})`);
-  el.innerHTML = `<div class="gauge"><b>${rel ? 'Good' : 'Low'}</b><div class="meter">${[0, 1, 2, 3].map(k => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</div><span class="small muted">reliability</span></div>
-    <div style="display:grid;gap:6px;min-width:0"><p><strong>${rel ? 'The models showed a dependable edge in testing.' : 'The models could not reliably predict which stocks would beat the others.'}</strong>
-    Tested on ${e.test_days} trading days they had never seen, the top-ranked fifth of stocks beat the bottom fifth by ${pct(e.spread20d)} over the next 20 days on average, but that result is ${rel ? 'statistically solid' : 'too small and too inconsistent to rely on'}.</p>
-    <p class="small muted">So treat the data score as a tie-breaker. The risk grade, stop distance and liquidity are measured directly from prices and are dependable. All of this history comes from a falling market (IHSG ${sgn(M.chg_window, 0)} over the data window), so it may not hold when the market turns.</p></div>`;
+  const e = V.ret, rel = D.reliable, st = V.stop, vo = V.vol;
+  const gauge = (lvl, word, caption) => { const col = lvl >= 3 ? 'good' : lvl >= 1 ? 'warn' : 'bad';
+    return `<div class="gauge" style="--hz:var(--${col})"><b>${word}</b><div class="meter">${[0, 1, 2, 3].map(k => `<i class="${k <= lvl ? 'on' : ''}"></i>`).join('')}</div><span class="small muted">${caption}</span></div>`; };
+  const retLvl = rel ? 3 : e.ic > 0.03 && e.ic_t_nonoverlap > 1 ? 1 : 0;
+  const cr = V.crash, cAuc = cr.chosen_auc ?? cr.auc, vR2 = vo.chosen_r2 ?? vo.r2;
+  const riskLvl = cAuc >= 0.7 ? 3 : cAuc >= 0.65 ? 2 : cAuc >= 0.58 ? 1 : 0;
+  const winner = t => V[t].chosen === 'baseline' ? 'a simple volatility model' : 'the machine-learning ensemble';
+  $('honest').innerHTML = `<div style="display:grid;gap:18px;width:100%">
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">${gauge(riskLvl, ['Low', 'Fair', 'Good', 'Strong'][riskLvl], 'risk forecast')}
+      <div style="display:grid;gap:6px;min-width:0;flex:1 1 300px"><p><strong>Can the system warn you about risk ahead? ${riskLvl >= 2 ? 'Yes, usefully.' : riskLvl === 1 ? 'Partly: it ranks risk better than chance.' : 'Not reliably.'}</strong>
+      Tested on ${st.test_rows.toLocaleString()} stock-days it had never seen, the 10%-drop forecast put a stock that later dropped above one that didn't ${pct(cAuc, 0)} of the time (50% is a coin flip). The volatility forecast explained ${pct(Math.max(0, vR2), 0)} of how much stocks actually swung.</p>
+      <p class="small muted">The best risk forecasts came from ${winner('crash')}: the boosted trees and neural net did not beat it on unseen data, so the system uses the simpler model. Risk repeats itself (calm stocks stay calmer, stressed stocks stay stressed), which is why it can be forecast. The stop-hit chance cannot be told apart by stock (AUC ${pct(st.chosen_auc ?? st.auc, 0)}) because each stop is already sized to the stock's own swings; about ${pct(st.actual_rate, 0)} of stops were touched within 20 days.</p></div></div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">${gauge(retLvl, rel ? 'Good' : 'Low', 'return ranking')}
+      <div style="display:grid;gap:6px;min-width:0;flex:1 1 300px"><p><strong>Can it predict which stocks will go up the most? ${rel ? 'It showed a dependable edge.' : 'Not reliably.'}</strong>
+      Over ${e.n_independent} separate 20-day periods it had never seen, the top-ranked fifth beat the bottom fifth by ${sgn(e.spread20d)} on average (rank correlation ${e.ic.toFixed(3)}, t = ${e.ic_t_nonoverlap}). ${rel ? 'That passed the significance test.' : 'That is too small or too inconsistent to rely on, so the data score is only a tie-breaker.'}</p></div></div>
+    <p class="small muted">Learning check (training data vs unseen data): returns ${e.train_skill.toFixed(3)} vs ${e.test_skill.toFixed(3)} rank correlation, 10% drops ${(cr.train_skill + 0.5).toFixed(2)} vs ${(cr.test_skill + 0.5).toFixed(2)} AUC. A large gap means memorising; the return models still show one, which is why their ranking gets little trust. Trained on ${D.bars.toLocaleString()} days (${D.from} to ${D.as_of}), tested in ${D.training.folds} walk-forward blocks.</p></div>`;
 })();
 
 // Board
@@ -305,10 +324,10 @@ function render() {
   saveFilters();
   const q = $('q').value.trim().toUpperCase(), sec = $('sector').value, mr = $('maxRisk').value, so = $('sort').value;
   let L = D.stocks.filter(s => (filt === 'all' || s.label === filt) && (!q || s.tk.includes(q)) && (!sec || s.sector === sec) && s.risk_grade <= mr);
-  const key = { score: s => -s.score, risk: s => s.risk_pct, liq: s => -s.liq_bn, chg20: s => -s.chg20d, tk: s => s.tk };
+  const key = { score: s => -s.score, risk: s => s.risk_pct, liq: s => -s.liq_bn, chg20: s => -s.chg20d, tk: s => s.tk, pstop: s => s.forecast.p_crash10 };
   L.sort((a, b) => { const ka = key[so](a), kb = key[so](b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
   $('count').textContent = `${L.length} of ${D.stocks.length} stocks`;
-  const head = `<div class="head" aria-hidden="true"><span></span><span>Stock</span><span class="r">Price</span><span class="r">20 days</span><span>Data score</span><span>Risk</span><span>Trend</span><span>Label</span></div>`;
+  const head = `<div class="head" aria-hidden="true"><span></span><span>Stock</span><span class="r">Price</span><span class="r">20 days</span><span>Data score</span><span>Risk</span><span>Trend</span><span class="r">10% drop risk</span><span>Label</span></div>`;
   $('board').innerHTML = head + (L.length ? L.map(s => {
     const [lt, lc, ls] = LBL[s.label];
     return `<div class="row" role="listitem" tabindex="0" aria-expanded="${open === s.tk}" data-tk="${s.tk}" style="--lbl:var(${lc});--lbl-soft:var(${ls})">
@@ -319,6 +338,7 @@ function render() {
       <span class="c-sc scorebar"><span class="track"><span class="fill" style="width:${s.score}%"></span></span><small>${s.score} / 100</small></span>
       <span class="c-grade"><span class="grade" style="--gc:var(${GRADE[s.risk_grade]})" title="Risk grade ${s.risk_grade}">${s.risk_grade}</span></span>
       <span class="c-trend trend ${s.trend}">${TREND[s.trend]}</span>
+      <span class="c-ps r ps ${dropLvl(s)}" title="Forecast chance of falling 10% or more below today within 20 trading days">${pct(s.forecast.p_crash10, 0)}</span>
       <span class="c-lbl"><span class="chip">${lt}</span></span>
     </div>${open === s.tk ? detail(s) : ''}`;
   }).join('') : `<div class="empty">No stocks match these filters. Try "All" or a higher risk grade.</div>`);
@@ -340,8 +360,9 @@ function renderParams(L) {
     return `<tr><td><b>${s.tk}</b></td><td style="font-family:var(--f-body);color:var(${lc});font-weight:600">${lt}</td>
       <td>${rp(p.entry)}</td><td>${rp(bep)}</td><td class="neg">${rp(p.stop)}</td><td class="neg">${sgn(p.stop / p.entry - 1)}</td>
       <td class="pos">${rp(p.tp1)}</td><td class="pos">${sgn(p.tp1 / p.entry - 1)}</td><td class="pos">${rp(p.tp2)}</td><td class="pos">${sgn(p.tp2 / p.entry - 1)}</td>
-      <td>${rp(p.lot_risk)}</td><td class="${hit >= s.bracket.breakeven ? 'pos' : 'neg'}">${pct(hit, 0)}</td></tr>`;
-  }).join('') || '<tr><td colspan="12" style="text-align:center;font-family:var(--f-body)">No stocks match the board filters.</td></tr>';
+      <td>${rp(p.lot_risk)}</td><td class="${hit >= s.bracket.breakeven ? 'pos' : 'neg'}">${pct(hit, 0)}</td>
+      <td class="ps ${dropLvl(s)}">${pct(s.forecast.p_crash10, 0)}</td><td>${s.forecast.size_mult.toFixed(2)}×</td><td>${s.forecast.noise_reaches_stop ? rp(s.forecast.wide_stop) : '–'}</td></tr>`;
+  }).join('') || '<tr><td colspan="15"style="text-align:center;font-family:var(--f-body)">No stocks match the board filters.</td></tr>';
 }
 ['feeBuy', 'feeSell'].forEach(id => $(id).addEventListener('input', () => { renderParams(lastList); if (open) render(); }));
 
@@ -370,29 +391,39 @@ function detail(s) {
           <dt>Target-before-stop rate (past year)</dt><dd>${pct(b.p_tp_first, 0)}</dd><dt>Needed to break even</dt><dd>${pct(b.breakeven, 0)}</dd></dl>
         <p class="small muted">${lv.res.length ? `Price has stalled before near ${lv.res.map(x => rp(x.price)).join(', ')}.` : ''} ${lv.sup.length ? `It has found buyers near ${lv.sup.map(x => rp(x.price)).join(', ')}.` : ''}</p>
         <p class="tvnote">${D.drawn && D.drawn.includes(s.tk) ? `These levels are drawn on your TradingView chart for ${s.tk} (labels start with RADAR).` : ''}</p></div>
+      <div class="panel"><h3>Risk forecast, next 20 trading days</h3>
+        <dl class="kv"><dt>Chance of a 10%+ drop</dt><dd class="ps ${dropLvl(s)}">${pct(s.forecast.p_crash10, 0)}</dd><dt>Chance of touching the stop</dt><dd>about ${pct(s.forecast.p_stop, 0)}</dd>
+          <dt>Expected yearly-rate volatility</dt><dd>${pct(s.forecast.vol20_ann, 0)}</dd>
+          <dt>Typical dip below today</dt><dd>${pct(s.forecast.dip_typical)}</dd>
+          <dt>Bad-case dip (1 in 10)</dt><dd>${pct(s.forecast.dip_bad)}</dd>
+          <dt>Suggested size vs normal</dt><dd>${s.forecast.size_mult.toFixed(2)}×</dd></dl>
+        ${s.forecast.noise_reaches_stop ? `<p class="flag">A normal bad stretch could reach the stop at ${rp(p.stop)}. To avoid being shaken out, either skip the trade or use a wider stop near ${rp(s.forecast.wide_stop)} with fewer lots (risk per lot becomes ${rp(s.forecast.wide_stop_lot_risk)}).</p>` : `<p class="small muted">The bad-case dip stays above the stop, so the stop sits outside normal noise.</p>`}
+        <p class="small muted">${RR.crash ? 'The 10%-drop chance ranks stocks by risk usefully on unseen data; treat the exact percentage as approximate.' : 'These forecasts did not pass out-of-sample testing; treat them as rough guides.'} The stop chance is about the same for every stock because the stop is sized to each stock's own swings. Size is scaled so each stock carries similar expected swings.</p></div>
       <div class="panel"><h3>How rough the ride has been</h3>
         <dl class="kv"><dt>Typical daily move</dt><dd>±${pct(s.atr_pct)}</dd><dt>Bad day (1 in 20)</dt><dd>−${pct(s.var95)}</dd><dt>Average of the worst days</dt><dd>−${pct(s.cvar95)}</dd>
           <dt>Biggest fall in this data</dt><dd>${pct(s.maxdd, 0)}</dd><dt>Now below its high</dt><dd>${pct(s.dd_now, 0)}</dd><dt>Moves vs IHSG (beta)</dt><dd>${s.beta}×</dd>
           <dt>Traded per day</dt><dd>Rp${s.liq_bn} bn</dd><dt>RSI 14</dt><dd>${s.rsi}</dd></dl></div>
       <div class="panel"><h3>How many lots?</h3>
         <div class="calc"><label for="c-acct">Your trading money (Rp)<input id="c-acct" type="number" min="0" step="1000000" value="10000000"></label>
-          <label for="c-risk">Max loss per trade (% of money)<input id="c-risk" type="number" min="0.1" max="5" step="0.1" value="1"></label></div>
+          <label for="c-risk">Max loss per trade (% of money)<input id="c-risk" type="number" min="0.1" max="5" step="0.1" value="1"></label>
+          <label for="c-adj" style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="c-adj" type="checkbox" checked> Scale by forecast volatility (${s.forecast.size_mult.toFixed(2)}×)</label></div>
         <div class="outgrid" id="c-out"></div><div class="warnline" id="c-warn"></div>
         <p class="small muted">Example: Rp10 million, risking 1%. Lots are rounded down and capped so one stock never takes more than 25% of your money.</p></div>
     </div></div>`;
 }
-let calcAcct = 10000000, calcRisk = 1;
+let calcAcct = 10000000, calcRisk = 1, calcAdj = true;
 function wireCalc(s) {
-  const a = $('c-acct'), r = $('c-risk'); a.value = calcAcct; r.value = calcRisk;
+  const a = $('c-acct'), r = $('c-risk'), adj = $('c-adj'); a.value = calcAcct; r.value = calcRisk; adj.checked = calcAdj;
   const run = () => {
-    calcAcct = +a.value; calcRisk = +r.value;
-    const p = s.plan, budget = calcAcct * calcRisk / 100, byRisk = Math.floor(budget / p.lot_risk), byCap = Math.floor(calcAcct * 0.25 / (p.entry * 100)), lots = Math.max(0, Math.min(byRisk, byCap));
+    calcAcct = +a.value; calcRisk = +r.value; calcAdj = adj.checked;
+    const p = s.plan, budget = calcAcct * calcRisk / 100 * (calcAdj ? Math.min(1, s.forecast.size_mult) : 1);
+    const byRisk = Math.floor(budget / p.lot_risk), byCap = Math.floor(calcAcct * 0.25 / (p.entry * 100)), lots = Math.max(0, Math.min(byRisk, byCap));
     const cost = lots * 100 * p.entry;
     $('c-out').innerHTML = [['Lots', lots], ['Money used', rp(cost)], ['Loss if stopped', '−' + rp(lots * p.lot_risk)], ['Gain at Target 1', '+' + rp(lots * 100 * (p.tp1 - p.entry))], ['Gain at Target 2', '+' + rp(lots * 100 * (p.tp2 - p.entry))], ['Share of your money', calcAcct ? pct(cost / calcAcct, 0) : '–']]
       .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
     $('c-warn').textContent = lots === 0 ? `Your risk budget (${rp(budget)}) is smaller than the risk on one lot (${rp(p.lot_risk)}). Use more money, a higher risk %, or skip this stock.` : byCap < byRisk ? 'Capped at 25% of your money in one stock.' : '';
   };
-  a.addEventListener('input', run); r.addEventListener('input', run); run();
+  a.addEventListener('input', run); r.addEventListener('input', run); adj.addEventListener('change', run); run();
 }
 
 // Allocation
@@ -409,28 +440,37 @@ function wireCalc(s) {
 
 // Advanced
 (function () {
-  const rows = Object.entries(V).map(([k, v]) => `<tr><td>${esc(v.label)}</td><td class="${v.ic > 0 ? 'pos' : 'neg'}">${v.ic.toFixed(3)}</td><td>${pct(v.ic_hit, 0)}</td><td>${v.ic_t_nonoverlap ?? '–'}</td><td>${v.n_independent}</td><td class="${v.spread20d > 0 ? 'pos' : 'neg'}">${sgn(v.spread20d, 2)}</td><td>${k === 'ensemble' ? '–' : pct(D.weights[k] || 0, 0)}</td></tr>`).join('');
-  const imp = D.importance.slice(0, 12).map(f => `<tr><td>${esc(f.label)}</td><td>${pct(f.gbt, 1)}</td><td class="${f.ridge > 0 ? 'pos' : 'neg'}">${f.ridge.toFixed(3)}</td><td class="${f.logit > 0 ? 'pos' : 'neg'}">${f.logit.toFixed(3)}</td></tr>`).join('');
+  const metric = v => v.task === 'cls' ? `AUC ${v.auc.toFixed(3)} · Brier skill ${sgn(v.brier_skill)}` : v.ic !== undefined ? `IC ${v.ic.toFixed(3)} · t ${v.ic_t_nonoverlap} (${v.n_independent} periods)` : `R² ${v.r2.toFixed(3)} · vs baseline ${sgn(v.skill_vs_baseline)}`;
+  const rows = Object.entries(V).map(([k, v]) => `<tr><td>${esc(v.label)}</td><td style="font-family:var(--f-body)">${metric(v)}</td><td>${v.train_skill.toFixed(3)}</td><td class="${v.test_skill > 0 ? 'pos' : 'neg'}">${v.test_skill.toFixed(3)}</td><td class="${v.overfit_gap > 0.1 ? 'neg' : ''}">${v.overfit_gap.toFixed(3)}</td>${['ridge', 'gbt', 'nn'].map(m => `<td>${v.per_model[m].toFixed(3)} <span class="muted">(${pct(v.avg_weights[m], 0)})</span></td>`).join('')}</tr>`).join('');
+  const imp = D.importance.slice(0, 10).map(f => `<tr><td>${esc(f.label)}</td><td>${pct(f.gbt, 1)}</td><td class="${f.ridge > 0 ? 'pos' : 'neg'}">${f.ridge.toFixed(3)}</td></tr>`).join('');
+  const rimp = D.risk_importance.slice(0, 10).map(f => `<tr><td>${esc(f.label)}</td><td>${pct(f.gbt, 1)}</td></tr>`).join('');
+  const cal = (V.crash.chosen_calibration || V.crash.calibration).map(b => `<tr><td>${pct(b.from, 0)}–${pct(b.to, 0)}</td><td>${b.n.toLocaleString()}</td><td>${pct(b.predicted, 0)}</td><td>${pct(b.actual, 0)}</td></tr>`).join('');
   $('advBody').innerHTML = `
   <div style="display:grid;gap:8px"><h3>Pipeline</h3><ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
     <li>Data: ${D.bars} daily bars per stock (${D.from} to ${D.as_of}) for ${D.universe} IDX stocks plus IHSG, pulled from the live TradingView chart.</li>
     <li>Features (${D.features.length}): momentum over 5/20/60/100 days, return vs IHSG, distance from 20/50/100-day averages, RSI, Bollinger %B, ATR, 20/60-day and EWMA (λ=0.94) volatility, drawdown, beta, correlation, stock-specific volatility, skewness, downside deviation, 5-day variance ratio, traded value and volume surge.</li>
     <li>Each feature is ranked across stocks on each day, so the models compare stocks with each other and ignore market-wide moves.</li>
-    <li>Target: each stock's rank by return over the next ${D.horizon} trading days.</li>
-    <li>Models: ridge regression, L2 logistic regression (beats the median or not), gradient-boosted trees (120 trees, depth 3), a neural network (26→16→8→1, ReLU, Adam), and a fixed factor rule (momentum + trend − volatility − downside risk).</li>
-    <li>Walk-forward test: train only on the past, skip ${D.horizon} days so no answer leaks in, test on the next ${D.horizon} days, then roll forward.</li>
-    <li>Ensemble: each model's weight equals its positive out-of-sample rank IC. Models with no skill get zero weight.</li>
-    <li>Risk grade: average cross-sectional percentile of 60-day volatility, CVaR 95%, max drawdown, beta, illiquidity and excess kurtosis, split into fifths.</li>
-    <li>Shortlist rule: data score ≥ 70, risk grade A–C, traded value ≥ Rp10 bn a day, and stop/target expectancy above −0.1R over the past year.</li>
+    <li>Five targets over the next ${D.horizon} trading days: return rank; stop loss touched (yes/no); take profit 1 before stop (yes/no); log realised volatility; worst dip below today's close. The risk targets also see 4 market-state inputs (IHSG volatility, 20-day return, distance from 1-year high, breadth) as z-scores.</li>
+    <li>Three learners per target: ridge (logistic for yes/no targets) with the penalty picked on validation; histogram gradient-boosted trees (depth 3, learning rate 0.05, min leaf 60, L2 on leaves) early-stopped on validation; a 16-8 ReLU neural net, early-stopped, bagged over two seeds.</li>
+    <li>Anti-overfitting: training rows thinned to every ${D.training.thin}th day (overlapping labels are near copies), nested walk-forward with a ${D.horizon}-day purge, validation = last 15% of each training window, ensemble weights from validation skill only, and the train-vs-test gap reported below.</li>
+    <li>Outer test: ${D.training.folds} blocks of ${D.training.fold_days} unseen days each, after at least ${D.training.min_train_days} days of training history. Baselines: base rate for yes/no targets, a one-variable EWMA-volatility fit for volatility and dip.</li>
+    <li>Yes/no probabilities are recalibrated (Platt scaling) on all out-of-sample predictions. The bad-case dip adds the 10th percentile of out-of-sample errors.</li>
+    <li>Risk grade: weighted cross-sectional percentile of 60-day volatility, CVaR 95%, max drawdown, beta, illiquidity, excess kurtosis${RR.crash ? " and (double weight) the forecast chance of a 10% drop" : ""}${RR.vol ? ", plus forecast volatility" : ""}, split into fifths.</li>
+    <li>Shortlist rule: data score ≥ 70, risk grade A–C, traded value ≥ Rp10 bn a day, stop/target expectancy above −0.1R${RR.crash ? ", and a 10%-drop forecast at or below the median" : ""}. Avoid also when the 10%-drop forecast is in the riskiest tenth.</li>
     <li>Allocation: long-only minimum-variance weights on 120 days of returns, capped at 35% each.</li></ol></div>
-  <div style="display:grid;gap:8px"><h3>Out-of-sample validation</h3>
-    <div class="tbl"><table><thead><tr><th>Model</th><th>Rank IC</th><th>Days IC &gt; 0</th><th>t-stat (non-overlap)</th><th>Independent periods</th><th>Top − bottom 20%, 20d</th><th>Ensemble weight</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="small muted">Rank IC is the correlation between the predicted ranking and the realised ranking; 0 means no skill. A reliable edge here requires t ≥ 2 over at least 8 independent periods; this data allows ${V.ensemble.n_independent}. The ensemble row is optimistic because its weights were picked on the same test window.</p></div>
-  <div style="display:grid;gap:8px"><h3>Which inputs mattered</h3>
-    <div class="tbl"><table><thead><tr><th>Feature</th><th>Boosted-tree gain share</th><th>Ridge coefficient</th><th>Logistic coefficient</th></tr></thead><tbody>${imp}</tbody></table></div>
-    <p class="small muted">Positive coefficients mean a higher rank on that feature went with better 20-day returns in this sample. Several are negative on volatility and downside risk: calmer stocks did relatively better during this fall.</p></div>
+  <div style="display:grid;gap:8px"><h3>Out-of-sample validation and overfitting check</h3>
+    <div class="tbl"><table><thead><tr><th>Target</th><th>Ensemble on unseen data</th><th>Skill on training data</th><th>Skill on unseen data</th><th>Gap</th><th>Ridge (weight)</th><th>Trees (weight)</th><th>Neural net (weight)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small muted">Skill is rank IC for returns, AUC − 0.5 for yes/no targets, and improvement over the baseline for volatility and dip. A gap near 0 means the models generalise; a large gap means memorisation. Weights are each learner's average share across folds, chosen on validation data, never on the test block.</p></div>
+  <div style="display:grid;gap:8px"><h3>Is the 10%-drop chance honest? (calibration)</h3>
+    <div class="tbl"><table><thead><tr><th>Forecast range</th><th>Stock-days</th><th>Average forecast</th><th>Actually dropped 10%+</th></tr></thead><tbody>${cal}</tbody></table></div>
+    <p class="small muted">Out-of-sample, after calibration, for the forecast the system uses. When "average forecast" and "actually happened" are close, a 40% forecast really means about 40%.</p></div>
+  <div class="dgrid" style="gap:18px">
+    <div style="display:grid;gap:8px;min-width:0"><h3>What drives the return ranking</h3>
+      <div class="tbl"><table><thead><tr><th>Feature</th><th>Tree gain share</th><th>Ridge coefficient</th></tr></thead><tbody>${imp}</tbody></table></div></div>
+    <div style="display:grid;gap:8px;min-width:0"><h3>What drives the risk forecast</h3>
+      ${V.crash.chosen === "baseline" ? `<p class="small">The model in use is a regularised logistic regression on four inputs: the stock&rsquo;s own log EWMA volatility, its ATR as a share of price, IHSG volatility and how far IHSG sits below its 1-year high. Boosted trees and the neural net were tested on the same unseen data and did not beat it, so they get no say.</p>` : `<div class="tbl"><table><thead><tr><th>Feature</th><th>Tree gain share</th></tr></thead><tbody>${rimp}</tbody></table></div>`}</div></div>
   <div style="display:grid;gap:6px"><h3>Limits</h3><ul class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
-    <li>About 14 months of data, almost all in a falling market. Models trained on one regime often fail in the next.</li>
+    <li>${D.bars.toLocaleString()} trading days (${D.from} to ${D.as_of}) including different market phases, but the most recent stretch is a steep fall. Models trained on past regimes can fail in a new one.</li>
     <li>Prices only. No earnings, valuation, dividends, news or foreign flows.</li>
     <li>The universe is 48 large, liquid names chosen in advance, so smaller stocks are not covered.</li>
     <li>Costs (broker fees, tax and spread), auto-rejection limits and gaps are not modelled. A gap can skip past a stop.</li>
