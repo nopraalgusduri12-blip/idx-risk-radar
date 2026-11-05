@@ -25,7 +25,7 @@ Data-only risk screening for Indonesian stocks (IDX), built on live daily data f
 ## Install
 
 ```bash
-git clone https://github.com/nopraalgusduri12/idx-risk-radar.git
+git clone https://github.com/nopraalgusduri12-blip/idx-risk-radar.git
 cd idx-risk-radar
 npm install
 ```
